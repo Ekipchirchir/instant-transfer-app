@@ -35,14 +35,15 @@ const HomeScreen = ({ navigation }) => {
         </View>
       )}
 
-      {/* User Info */}
+      
+
       <View style={styles.userCard}>
         <Text style={styles.userName}>John Doe</Text>
         <Text style={styles.userId}>CR9292992</Text>
         <Text style={styles.balance}>Deriv balance: $290</Text>
       </View>
 
-      {/* Deposit & Withdraw Buttons */}
+   
       <View style={styles.buttonsContainer}>
         <TouchableOpacity style={styles.depositButton} onPress={() => navigation.navigate("Deposit")}>
           <Ionicons name="add" size={24} color="black" />
@@ -57,7 +58,7 @@ const HomeScreen = ({ navigation }) => {
         <Text style={styles.label}>WITHDRAW</Text>
       </View>
 
-      {/* Transactions */}
+
       <View style={styles.transactionContainer}>
         <View style={styles.transactionHeader}>
           <Text style={styles.transactionTitle}>TRANSACTIONS</Text>
