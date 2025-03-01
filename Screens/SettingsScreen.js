@@ -6,17 +6,17 @@ import { useNavigation } from "@react-navigation/native";
 const SettingsScreen = () => {
   const navigation = useNavigation();
 
-  // Function to handle logout
+
   const handleLogout = () => {
     navigation.replace("Login");
   };
 
-  // Function to handle editing phone number
+
   const editPhoneNumber = () => {
     alert("Edit Phone Number feature coming soon!");
   };
 
-  // Function to handle password change
+
   const changePassword = () => {
     alert("Change Password feature coming soon!");
   };
@@ -35,7 +35,6 @@ const SettingsScreen = () => {
         </View>
       </View>
 
-      {/* Action Buttons */}
       <TouchableOpacity style={styles.button} onPress={editPhoneNumber}>
         <Ionicons name="call-outline" size={20} color="black" />
         <Text style={styles.buttonText}>Edit phone number  </Text>
@@ -54,7 +53,7 @@ const SettingsScreen = () => {
   );
 };
 
-// Styles
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
