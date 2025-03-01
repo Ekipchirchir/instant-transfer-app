@@ -10,10 +10,10 @@ const WithdrawScreen = () => {
   const minimumUsd = 10; // Minimum withdrawal amount
   const phoneNumber = "+254768245123"; // User's phone number (placeholder)
 
-  // Convert USD to KES
+
   const kesAmount = usdAmount ? (usdAmount * exchangeRate).toFixed(2) : "";
 
-  // Handle withdrawal function
+
   const handleWithdraw = () => {
     if (!usdAmount || usdAmount < minimumUsd) {
       alert(`Minimum withdrawal amount is USD ${minimumUsd}`);
@@ -24,12 +24,12 @@ const WithdrawScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Withdrawal Card */}
+   
       <View style={styles.withdrawCard}>
         {/*<Ionicons name="remove-outline" size={20} color="black" />*/}
         <Text style={styles.title}>WITHDRAW</Text>
 
-        {/* USD Amount Input */}
+      
         <Text style={styles.label}>USD</Text>
         <TextInput
           style={styles.input}
@@ -41,7 +41,7 @@ const WithdrawScreen = () => {
         />
         <Text style={styles.note}>Minimum 10 USD {minimumUsd}</Text>
 
-        {/* KES Amount (Disabled Input) */}
+        
         <Text style={styles.label}>KES</Text>
         <TextInput
           style={styles.disabledInput}
@@ -53,7 +53,6 @@ const WithdrawScreen = () => {
         <Text style={styles.exchangeRate}>1 USD = KES {exchangeRate}</Text>
         <Text style={styles.phone}>{phoneNumber}</Text>
 
-        {/* Withdraw Button */}
         <TouchableOpacity style={styles.withdrawButton} onPress={handleWithdraw}>
           <Text style={styles.withdrawButtonText}>WITHDRAW</Text>
           <Ionicons name="chevron-forward-outline" size={20} color="white" />
@@ -63,7 +62,7 @@ const WithdrawScreen = () => {
   );
 };
 
-// Styles
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
