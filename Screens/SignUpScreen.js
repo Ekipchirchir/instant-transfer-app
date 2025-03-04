@@ -26,11 +26,11 @@ const SignUpScreen = () => {
 
   return (
     <View style={styles.container}>
-
+      {/* Sign Up Card */}
       <View style={styles.signUpCard}>
         <Text style={styles.title}>SIGN UP</Text>
 
-      
+        {/* Name Input */}
         <TextInput
           style={styles.input}
           placeholder="Full Name"
@@ -39,7 +39,7 @@ const SignUpScreen = () => {
           onChangeText={setName}
         />
 
-       
+        {/* Email Input */}
         <TextInput
           style={styles.input}
           placeholder="Email Address"
@@ -49,7 +49,7 @@ const SignUpScreen = () => {
           onChangeText={setEmail}
         />
 
-     
+        {/* Phone Input */}
         <TextInput
           style={styles.input}
           placeholder="Phone Number"
@@ -59,7 +59,7 @@ const SignUpScreen = () => {
           onChangeText={setPhone}
         />
 
-    
+        {/* Password Input */}
         <TextInput
           style={styles.input}
           placeholder="Password"
@@ -69,7 +69,7 @@ const SignUpScreen = () => {
           onChangeText={setPassword}
         />
 
-       
+        {/* Confirm Password Input */}
         <TextInput
           style={styles.input}
           placeholder="Confirm Password"
@@ -79,12 +79,12 @@ const SignUpScreen = () => {
           onChangeText={setConfirmPassword}
         />
 
-       
+        {/* Sign Up Button */}
         <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
           <Text style={styles.signUpButtonText}>SIGN UP</Text>
-          <Ionicons name="chevron-forward-outline" size={20} color="white" />
         </TouchableOpacity>
 
+        {/* Login Navigation */}
         <TouchableOpacity onPress={() => navigation.navigate("Login")}>
           <Text style={styles.loginText}>Already have an account? Login </Text>
         </TouchableOpacity>
@@ -93,7 +93,7 @@ const SignUpScreen = () => {
   );
 };
 
-
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
