@@ -16,6 +16,9 @@ const HomeScreen = ({ navigation }) => {
     <View style={styles.container}>
 
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+           <Ionicons name="arrow-back" size={24} color="black" />
+        </TouchableOpacity>
         <Text style={styles.appTitle}>Instant Transfer</Text>
         <TouchableOpacity onPress={() => setMenuVisible(!menuVisible)}>
           <Ionicons name="menu" size={24} color="black" />
@@ -35,15 +38,14 @@ const HomeScreen = ({ navigation }) => {
         </View>
       )}
 
-      
-
+     
       <View style={styles.userCard}>
         <Text style={styles.userName}>John Doe</Text>
         <Text style={styles.userId}>CR9292992</Text>
         <Text style={styles.balance}>Deriv balance: $290</Text>
       </View>
 
-   
+     
       <View style={styles.buttonsContainer}>
         <TouchableOpacity style={styles.depositButton} onPress={() => navigation.navigate("Deposit")}>
           <Ionicons name="add" size={24} color="black" />
@@ -58,11 +60,13 @@ const HomeScreen = ({ navigation }) => {
         <Text style={styles.label}>WITHDRAW</Text>
       </View>
 
-
+      {/* Transactions */}
       <View style={styles.transactionContainer}>
         <View style={styles.transactionHeader}>
           <Text style={styles.transactionTitle}>TRANSACTIONS</Text>
-          <Text style={styles.moreText}>MORE</Text>
+          <TouchableOpacity onPress={() => navigation.navigate("Transaction")}>
+            <Text style={styles.moreText}>MORE</Text>
+          </TouchableOpacity>
         </View>
 
         <FlatList
@@ -77,11 +81,13 @@ const HomeScreen = ({ navigation }) => {
           )}
         />
       </View>
+      <TouchableOpacity style={styles.chatIcon}>
+                      <Ionicons name="chatbubble-ellipses-outline" size={24} color="black" />
+                  </TouchableOpacity>
     </View>
   );
 };
 
-// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -95,11 +101,12 @@ const styles = StyleSheet.create({
     backgroundColor: "lightgreen",
     padding: 15,
     borderRadius: 10,
-    zIndex: 5, // Ensure it's above other elements
+    zIndex: 5, 
   },
   appTitle: {
     fontSize: 18,
     fontWeight: "bold",
+    right:70,
   },
   dropdownMenu: {
     position: "absolute",
@@ -113,7 +120,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
-    zIndex: 10, // Ensure menu appears above all elements
+    zIndex: 10,
   },
   menuItem: {
     flexDirection: "row",
@@ -129,7 +136,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF8DC",
     padding: 15,
     borderRadius: 10,
-    marginVertical: 40, // Moved down to avoid overlapping
+    marginVertical: 40, 
   },
   userName: {
     fontSize: 18,
@@ -213,6 +220,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#555",
   },
+  chatIcon: {
+    position: 'absolute',
+    bottom: 200,
+    left:40,
+    paddingBottom:10,
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 25,
+    elevation: 5,
+}
 });
 
 export default HomeScreen;
