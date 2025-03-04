@@ -55,7 +55,7 @@ const LoginScreen = ({ navigation }) => {
 
       <TouchableOpacity style={styles.loginButton} onPress = {() => navigation.navigate("Home")}>
         <Text style={styles.loginText}>LOG IN</Text>
-        <Ionicons name="chevron-forward" size={18} color="white" />
+        
       </TouchableOpacity>
 
       <Text style={styles.signupText}>
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8E98D",
+    backgroundColor: "whitesmoke",
     borderRadius: 5,
     paddingHorizontal: 10,
     marginVertical: 5,
@@ -136,8 +136,8 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   loginButton: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+
+    
     alignItems: "center",
     backgroundColor: "#000",
     padding: 12,
@@ -149,6 +149,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+    alignItems: "center",
   },
   signupText: {
     marginTop: 10,
