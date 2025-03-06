@@ -6,8 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
-// ✅ Set API URL (Use `10.0.2.2` for Android Emulator, `localhost` for iOS/Metro)
-const API_BASE_URL = "http://localhost:8000/api"; // Use localhost for web
+
+const API_BASE_URL = "http://localhost:8000/api"; 
  
 
 const LoginScreen = ({ navigation }) => {
@@ -16,7 +16,7 @@ const LoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // ✅ Handle login request
+  
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Error", "Please enter both email and password.");
@@ -30,7 +30,7 @@ const LoginScreen = ({ navigation }) => {
         password,
       });
   
-      console.log("Login Response:", response.data); // ✅ Log success response
+      console.log("Login Response:", response.data);
       const { access, refresh } = response.data;
   
       await AsyncStorage.setItem("accessToken", access);
@@ -40,7 +40,7 @@ const LoginScreen = ({ navigation }) => {
       navigation.navigate("Home");
   
     } catch (error) {
-      console.error("Login Error:", error.response?.data || error.message); // ✅ Log error
+      console.error("Login Error:", error.response?.data || error.message); 
       Alert.alert("Login Failed", error.response?.data?.detail || "Invalid credentials");
     } finally {
       setLoading(false);
