@@ -1,62 +1,73 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
+import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { refreshToken } from "./apis";
-import HomeScreen from "./Screens/HomeScreen";
+
+// Import Screens
 import LoginScreen from "./Screens/LoginScreen";
-import SignUpScreen from "./Screens/SignUpScreen";
-import LandingScreen from "./Screens/LandingScreen";
-import DepositScreen from "./Screens/DepositScreen";
-import SettingsScreen from "./Screens/SettingsScreen";
-import WithdrawScreen from "./Screens/WithdrawalScreen";
+import HomeScreen from "./Screens/HomeScreen";
 import TransactionScreen from "./Screens/TransactionScreen";
+import DepositScreen from "./Screens/DepositScreen";
+import WithdrawalScreen from "./Screens/WithdrawalScreen";
+import SettingsScreen from "./Screens/SettingsScreen";
+import DerivConnectScreen from "./Screens/DerivConnectScreen";
+
+const linking = {
+  prefixes: ["instanttransfer://"],
+  config: {
+    screens: {
+      Home: "auth-success",
+      Login: "auth-failed",
+      DerivConnectScreen: "deriv-connect",
+      Transactions: "transactions",
+      Deposit: "deposit",
+      Withdrawal: "withdrawal",
+      Settings: "settings",
+    },
+  },
+};
 
 const Stack = createStackNavigator();
 
-const Navigation = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-
+const Navigation = ({ navigation }) => {
   useEffect(() => {
-    const checkLoginStatus = async () => {
-      try {
-        const token = await AsyncStorage.getItem("access_token");
-        if (!token) {
-          setIsLoggedIn(false);
-        } else {
-          const newToken = await refreshToken();
-          setIsLoggedIn(!!newToken);
+    const handleDeepLink = async ({ url }) => {
+      console.log("🔗 Deep Link Received:", url);
+      const { queryParams } = Linking.parse(url);
+      console.log("🔍 Parsed Query Params:", queryParams);
+
+      if (queryParams?.access_token && queryParams?.deriv_account) {
+        try {
+          await AsyncStorage.multiSet([
+            ["access_token", queryParams.access_token],
+            ["deriv_account", queryParams.deriv_account],
+            ["is_logged_in", "true"],
+          ]);
+          console.log("✅ Deep Link Data Stored!");
+
+          setTimeout(() => {
+            navigation.replace("Home");
+          }, 500);
+        } catch (error) {
+          console.error("🚨 Error storing deep link data:", error);
         }
-      } catch (error) {
-        console.error("Error checking login status:", error);
-        setIsLoggedIn(false);
-      } finally {
-        setIsCheckingAuth(false);
       }
     };
 
-    checkLoginStatus();
+    Linking.addEventListener("url", handleDeepLink);
   }, []);
 
-  if (isCheckingAuth) {
-    return null; // Prevent flickering before auth state is determined
-  }
-
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {/* Authentication Screens */}
-        <Stack.Screen name="Landing" component={LandingScreen} />
+    <NavigationContainer linking={linking}>
+      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="SignUp" component={SignUpScreen} />
-
-        {/* App Screens */}
         <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="DerivConnect" component={DerivConnectScreen}/>
+        <Stack.Screen name="Transactions" component={TransactionScreen} />
         <Stack.Screen name="Deposit" component={DepositScreen} />
+        <Stack.Screen name="Withdrawal" component={WithdrawalScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
-        <Stack.Screen name="Withdraw" component={WithdrawScreen} />
-        <Stack.Screen name="Transaction" component={TransactionScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
