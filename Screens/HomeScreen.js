@@ -7,7 +7,7 @@ import axios from "axios";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
-const API_BASE_URL = "https://salem-affiliated-wanted-voices.trycloudflare.com/api";
+const API_BASE_URL = "https://cleared-groove-same-turning.trycloudflare.com/api";
 
 const HomeScreen = () => {
     const [user, setUser] = useState(null);
@@ -20,34 +20,23 @@ const HomeScreen = () => {
         const fetchUserData = async () => {
             try {
                 let derivAccount = route.params?.deriv_account;
-                console.log("🔍 Redirected Deriv Account:", derivAccount);
-
                 if (!derivAccount) {
                     derivAccount = await AsyncStorage.getItem("deriv_account");
-                    console.log("🔍 Stored Deriv Account:", derivAccount);
                 }
-
                 if (!derivAccount) {
-                    console.error("❌ No Deriv account found.");
                     setError("❌ No account found. Please sign up via Deriv.");
                     setLoading(false);
                     return;
                 }
 
-                console.log(`✅ Fetching user details for: ${derivAccount}`);
-
                 const response = await axios.get(`${API_BASE_URL}/user/${derivAccount}`);
-
                 if (response.status !== 200) {
                     throw new Error(`Server responded with status ${response.status}`);
                 }
 
-                console.log("✅ User Data Received:", response.data);
                 setUser(response.data);
-
                 await AsyncStorage.setItem("deriv_account", derivAccount);
             } catch (error) {
-                console.error("❌ API Error:", error.response ? error.response.data : error.message);
                 setError("❌ Failed to fetch user data.");
             } finally {
                 setLoading(false);
@@ -63,12 +52,23 @@ const HomeScreen = () => {
     };
 
     if (loading) {
-        return <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />;
+        return <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />;
     }
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>INSTANT TRANSFER</Text>
+            {/* 🔙 Back Button */}
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate("DerivConnectScreen")}>
+                <Ionicons name="arrow-back" size={28} color="white" />
+            </TouchableOpacity>
+
+            {/* 📌 App Title */}
+            <Text style={styles.title}>Instant Transfer</Text>
+
+            {/* 🚪 Logout Button */}
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <Ionicons name="exit-outline" size={28} color="white" />
+            </TouchableOpacity>
 
             {error ? (
                 <Text style={styles.error}>{error}</Text>
@@ -78,14 +78,14 @@ const HomeScreen = () => {
                     <Text style={styles.accountNumber}>Account: {user?.deriv_account || "No Account"}</Text>
                     <Text style={styles.balance}>Deriv Balance: ${user?.balance?.toFixed(2) || "0.00"}</Text>
 
-                    {/* Deposit & Withdraw Buttons */}
+                    {/* 💰 Deposit & Withdraw Buttons */}
                     <View style={styles.buttonsContainer}>
-                        <TouchableOpacity style={styles.depositButton} onPress={() => navigation.navigate("DepositScreen")}>
+                        <TouchableOpacity style={styles.depositButton} onPress={() => navigation.navigate("Deposit")}>
                             <Ionicons name="add-circle" size={40} color="green" />
                             <Text style={styles.buttonText}>Deposit</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.withdrawButton} onPress={() => navigation.navigate("WithdrawScreen")}>
+                        <TouchableOpacity style={styles.withdrawButton} onPress={() => navigation.navigate("Withdrawal")}>
                             <Ionicons name="remove-circle" size={40} color="red" />
                             <Text style={styles.buttonText}>Withdraw</Text>
                         </TouchableOpacity>
@@ -93,26 +93,26 @@ const HomeScreen = () => {
                 </View>
             )}
 
-            {/* Bottom Navigation */}
+            {/* 📌 Bottom Navigation Bar */}
             <View style={styles.bottomNav}>
-                <TouchableOpacity onPress={() => navigation.navigate("Home")}>
-                    <Ionicons name="home-outline" size={28} color="black" />
+                <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate("Home")}>
+                    <Ionicons name="home" size={26} color="#007AFF" />
                     <Text style={styles.navText}>Home</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => navigation.navigate("Transactions")}>
-                    <Ionicons name="list-outline" size={28} color="black" />
+                <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate("TransactionHistory")}>
+                    <Ionicons name="swap-horizontal" size={26} color="#007AFF" />
                     <Text style={styles.navText}>Transactions</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => navigation.navigate("Settings")}>
-                    <Ionicons name="settings-outline" size={28} color="black" />
+                <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate("Settings")}>
+                    <Ionicons name="settings" size={26} color="#007AFF" />
                     <Text style={styles.navText}>Settings</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={handleLogout}>
-                    <Ionicons name="log-out-outline" size={28} color="red" />
-                    <Text style={styles.navText}>Logout</Text>
+                <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate("SupportScreen")}>
+                    <Ionicons name="chatbubble-ellipses" size={26} color="#007AFF" />
+                    <Text style={styles.navText}>Support</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -138,29 +138,46 @@ const styles = StyleSheet.create({
         fontSize: 22,
         fontWeight: "bold",
         textAlign: "center",
-        marginBottom: 20,
+        color: "white",
+        position: "absolute",
+        top: 45,
+    },
+    backButton: {
+        position: "absolute",
+        top: 40,
+        left: 15,
+    },
+    logoutButton: {
+        position: "absolute",
+        top: 40,
+        right: 15,
     },
     userCard: {
-        backgroundColor: "#F8F6C7",
+        backgroundColor: "white",
         padding: 20,
-        borderRadius: 10,
-        elevation: 3,
-        marginVertical: 15,
+        borderRadius: 12,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 5,
         width: "90%",
         alignItems: "center",
+        marginVertical: 15,
     },
     userName: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: "bold",
-        color: "black",
+        color: "#333",
     },
     accountNumber: {
         fontSize: 16,
-        color: "gray",
+        color: "#555",
     },
     balance: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: "bold",
+        color: "#007AFF",
         marginTop: 5,
     },
     error: {
@@ -172,15 +189,17 @@ const styles = StyleSheet.create({
     },
     buttonsContainer: {
         flexDirection: "row",
-        justifyContent: "space-around",
+        justifyContent: "space-between",
         width: "100%",
-        marginTop: 15,
+        marginTop: 20,
     },
     depositButton: {
         alignItems: "center",
+        padding: 10,
     },
     withdrawButton: {
         alignItems: "center",
+        padding: 10,
     },
     buttonText: {
         fontSize: 14,
@@ -193,14 +212,18 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-around",
         width: "100%",
-        backgroundColor: "#F8F6C7",
+        backgroundColor: "white",
         paddingVertical: 15,
         borderTopWidth: 1,
         borderColor: "#ddd",
+    },
+    navButton: {
+        alignItems: "center",
     },
     navText: {
         fontSize: 12,
         fontWeight: "bold",
         marginTop: 3,
+        color: "#007AFF",
     },
 });
