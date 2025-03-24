@@ -5,10 +5,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";  
 import { useNavigation } from "@react-navigation/native";
 
-const DERIV_APP_ID = "69603";  
-const REDIRECT_URI = encodeURIComponent("https://2105-129-222-187-44.ngrok-free.app/callback");
+const DERIV_APP_ID = "70029";  
+const REDIRECT_URI = encodeURIComponent("https://salem-affiliated-wanted-voices.trycloudflare.com/callback/");
 
-const DerivLoginScreen = () => {
+const DerivConnectScreen = () => {
   const navigation = useNavigation();
 
   const handleDerivLogin = async () => {
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     justifyContent: "center",
-    backgroundColor: "lightgreen", // 🌿 Solid Light Green Background
+    backgroundColor: "lightgreen", 
   },
   header: {
     position: "absolute",
@@ -148,4 +148,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default DerivLoginScreen;
+export default DerivConnectScreen;
