@@ -57,7 +57,6 @@ const SupportScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Fixed Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#3A0CA3" />
@@ -66,13 +65,11 @@ const SupportScreen = ({ navigation }) => {
           <View style={{ width: 24 }} />
         </View>
 
-        {/* Scrollable Content */}
         <ScrollView 
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Contact Methods */}
           <Text style={styles.sectionTitle}>Contact Options</Text>
           <View style={styles.contactMethods}>
             {contactMethods.map((method, index) => (
@@ -93,7 +90,6 @@ const SupportScreen = ({ navigation }) => {
             ))}
           </View>
 
-          {/* FAQ Section */}
           <Text style={styles.sectionTitle}>FAQs</Text>
           <View style={styles.faqContainer}>
             {faqs.map((faq, index) => (
@@ -108,7 +104,6 @@ const SupportScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Support Resources */}
           <Text style={styles.sectionTitle}>Resources</Text>
           <View style={styles.resourceContainer}>
             <TouchableOpacity style={styles.resourceCard}>
