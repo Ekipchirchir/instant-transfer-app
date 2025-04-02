@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 import { 
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert 
+  View, Text, StyleSheet, TouchableOpacity, 
+  ActivityIndicator, Alert, ScrollView 
 } from "react-native";
-import { Feather } from "@expo/vector-icons"; // ✅ Feather icons for clean UI
-import { useNavigation } from "@react-navigation/native";
+import { Feather } from "@expo/vector-icons";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import * as WebBrowser from "expo-web-browser"; // ✅ Expo WebBrowser for opening links
+import * as WebBrowser from "expo-web-browser";
 
-const API_BASE_URL = "https://cleared-groove-same-turning.trycloudflare.com/api";
+const API_BASE_URL = "https://instant-transfer-back-production.up.railway.app/api";
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
@@ -16,187 +17,282 @@ const SettingsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const derivAccount = await AsyncStorage.getItem("deriv_account");
+  useFocusEffect(
+    useCallback(() => {
+      const fetchUserData = async () => {
+        setLoading(true);
+        try {
+          const derivAccount = await AsyncStorage.getItem("deriv_account");
+          if (!derivAccount) {
+            setError("No account found. Please sign up via Deriv.");
+            setLoading(false);
+            return;
+          }
+          
+          const response = await axios.get(`${API_BASE_URL}/user/${derivAccount}`);
+          if (response.status !== 200) throw new Error(`Server error ${response.status}`);
 
-        if (!derivAccount) {
-          setError("❌ No account found. Please sign up via Deriv.");
+          setUser(response.data);
+          setError("");
+        } catch (error) {
+          console.error("API Error:", error.response ? error.response.data : error.message);
+          setError("Failed to load user data. Please try again.");
+        } finally {
           setLoading(false);
-          return;
         }
+      };
 
-        console.log(`✅ Fetching settings data for: ${derivAccount}`);
-
-        const response = await axios.get(`${API_BASE_URL}/user/${derivAccount}`);
-
-        if (response.status !== 200) {
-          throw new Error(`Server responded with status ${response.status}`);
-        }
-
-        console.log("✅ Settings Data Received:", response.data);
-        setUser(response.data);
-      } catch (error) {
-        console.error("❌ API Error:", error.response ? error.response.data : error.message);
-        setError("❌ Failed to load user data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
+      fetchUserData();
+    }, [])
+  );
 
   const handleLogout = async () => {
-    await AsyncStorage.clear();
-    Alert.alert("Logged Out", "You have been logged out successfully.");
-    navigation.replace("Landing"); // Redirect to the landing page
+    Alert.alert(
+      "Confirm Logout",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Log Out", onPress: async () => {
+          await AsyncStorage.clear();
+          navigation.replace("Landing");
+        }}
+      ]
+    );
   };
 
   const changePassword = async () => {
     try {
-      const url = "https://deriv.com/reset-password";
-      await WebBrowser.openBrowserAsync(url);
+      await WebBrowser.openBrowserAsync("https://deriv.com/reset-password");
     } catch (error) {
-      console.error("❌ Error opening Deriv password reset:", error);
-      Alert.alert("Error", "Could not open the Deriv password reset page.");
+      Alert.alert("Error", "Could not open the password reset page.");
     }
   };
 
+  const navigateToSupport = () => {
+    navigation.navigate("SupportScreen"); 
+  };
+
   if (loading) {
-    return <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />;
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#3A0CA3" />
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
-      {/* 🔙 Back Button */}
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate("Home")}>
-        <Feather name="arrow-left" size={26} color="white" />
-      </TouchableOpacity>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Feather name="arrow-left" size={24} color="#3A0CA3" />
+        </TouchableOpacity>
+        
+        <Text style={styles.headerTitle}>Account Settings</Text>
+        
+        <TouchableOpacity 
+          style={styles.logoutButton} 
+          onPress={handleLogout}
+        >
+          <Feather name="log-out" size={24} color="#3A0CA3" />
+        </TouchableOpacity>
+      </View>
 
-      {/* 📌 Screen Title */}
-      <Text style={styles.title}>Settings</Text>
-
-      {/* 🚪 Logout Button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Feather name="log-out" size={26} color="white" />
-      </TouchableOpacity>
-
-      {error ? (
-        <Text style={styles.error}>{error}</Text>
-      ) : (
-        <View style={styles.accountCard}>
-          <Feather name="user" size={50} color="black" />
-          <Text style={styles.sectionTitle}>ACCOUNT</Text>
-          
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>👤 Name: {user?.fullname || "Unknown"}</Text>
-            <Text style={styles.infoText}>🔢 CR Number: {user?.deriv_account || "No Account"}</Text>
-            <Text style={styles.infoText}>📧 Email: {user?.email || "No Email"}</Text>
-            <Text style={styles.infoText}>💰 Balance: ${user?.balance?.toFixed(2) || "0.00"} {user?.currency || ""}</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Feather name="alert-circle" size={20} color="#E5383B" />
+            <Text style={styles.errorText}>{error}</Text>
           </View>
-        </View>
-      )}
+        ) : (
+          <>
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Feather name="user" size={24} color="#3A0CA3" />
+                <Text style={styles.cardTitle}>Account Information</Text>
+              </View>
+              
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Full Name</Text>
+                <Text style={styles.infoValue}>{user?.fullname || "Not available"}</Text>
+              </View>
+              
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Account Number</Text>
+                <Text style={styles.infoValue}>{user?.deriv_account || "Not available"}</Text>
+              </View>
+              
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Email Address</Text>
+                <Text style={styles.infoValue}>{user?.email || "Not available"}</Text>
+              </View>
+              
+              <View style={[styles.infoItem, {borderBottomWidth: 0}]}>
+                <Text style={styles.infoLabel}>Current Balance</Text>
+                <Text style={[styles.infoValue, {color: "#2B9348"}]}>
+                  ${user?.balance?.toFixed(2) || "0.00"} {user?.currency || ""}
+                </Text>
+              </View>
+            </View>
 
-      <TouchableOpacity style={styles.button} onPress={changePassword}>
-        <Feather name="lock" size={20} color="black" />
-        <Text style={styles.buttonText}>Change Password</Text>
-      </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.optionButton}
+              onPress={changePassword}
+            >
+              <View style={styles.optionContent}>
+                <Feather name="lock" size={20} color="#3A0CA3" />
+                <Text style={styles.optionText}>Change Password</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="#ADB5BD" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.optionButton}
+              onPress={()=>navigation.navigate("Support")} 
+            >
+              <View style={styles.optionContent}>
+                <Feather name="help-circle" size={20} color="#3A0CA3" />
+                <Text style={styles.optionText}>Help & Support</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="#ADB5BD" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.optionButton}
+              onPress={() => navigation.navigate("TermsScreen")}
+            >
+              <View style={styles.optionContent}>
+                <Feather name="file-text" size={20} color="#3A0CA3" />
+                <Text style={styles.optionText}>Terms & Conditions</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="#ADB5BD" />
+            </TouchableOpacity>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 };
 
-export default SettingsScreen;
-
-// 🔹 Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "lightgreen",
-    padding: 20,
-    alignItems: "center",
   },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    textAlign: "center",
-    color: "white",
-    position: "absolute",
-    top: 45,
-  },
-  backButton: {
-    position: "absolute",
-    top: 40,
-    left: 15,
-  },
-  logoutButton: {
-    position: "absolute",
-    top: 40,
-    right: 15,
-  },
-  accountCard: {
-    backgroundColor: "white",
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
-    width: "90%",
-    alignItems: "center",
-    marginVertical: 15,
-    marginTop:140,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 5,
-    color: "#333",
-  },
-  infoBox: {
-    backgroundColor: "#F9F9C5",
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-    width: "100%",
-  },
-  infoText: {
-    fontSize: 14,
-    marginVertical: 2,
-    color: "#555",
-  },
-  button: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    padding: 15,
-    borderRadius: 10,
-    width: "90%",
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonText: {
-    fontSize: 16,
-    marginLeft: 10,
-    fontWeight: "bold",
-    color: "#007AFF",
-  },
-  loader: {
+  loaderContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#F8F9FA",
   },
-  error: {
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    paddingTop: 50,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E9ECEF",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#212529",
+  },
+  backButton: {
+    padding: 5,
+  },
+  logoutButton: {
+    padding: 5,
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  errorContainer: {
+    backgroundColor: "#FFF5F5",
+    padding: 15,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#FFE3E3",
+  },
+  errorText: {
+    color: "#E5383B",
+    fontSize: 14,
+    fontWeight: "500",
+    marginLeft: 10,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E9ECEF",
+  },
+  cardTitle: {
     fontSize: 16,
-    color: "red",
-    textAlign: "center",
-    fontWeight: "bold",
-    marginTop: 10,
+    fontWeight: "600",
+    color: "#3A0CA3",
+    marginLeft: 10,
+  },
+  infoItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F3F5",
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: "#6C757D",
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#212529",
+  },
+  optionButton: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  optionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  optionText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#212529",
+    marginLeft: 10,
   },
 });
+
+export default SettingsScreen;
