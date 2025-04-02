@@ -1,112 +1,112 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { 
+  View, Text, TouchableOpacity, StyleSheet, 
+  StatusBar, Dimensions, ImageBackground
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+
+const { width, height } = Dimensions.get("window");
 
 const LandingScreen = ({ navigation }) => {
   return (
-    <LinearGradient colors={["lightgreen", "#fff"]} style={styles.container}>
-      {/* Logo goes here*/}
-      <Text style={styles.appName}>Instant Transfer</Text>
-      <Text style={styles.tagline}>For seamless, secure, and instant money transfers. 
-        Whether you're depositing funds, withdrawing cash, or tracking your 
-        transaction history,
-        our app ensures a smooth and reliable experience.</Text>
-
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
       
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.loginButton}
-          onPress={() => navigation.navigate("Login")}
-        >
-          <Text style={styles.buttonText}>LOGIN</Text>
-        </TouchableOpacity>
+      <ImageBackground 
+        style={styles.background}
+        blurRadius={2}
+      >
+        <View style={styles.content}>
+          <Ionicons name="swap-horizontal" size={50} color="white" style={styles.logo} />
+          
+          <Text style={styles.appName}>INSTANT TRANSFER</Text>
+          
+          <Text style={styles.tagline}>
+            Fast Deriv deposits & withdrawals
+          </Text>
+          
+          <TouchableOpacity 
+            style={styles.mainButton}
+            onPress={() => navigation.navigate("DerivConnect")}
+          >
+            <Text style={styles.buttonText}>GET STARTED</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={styles.signupButton}
-          onPress={() => navigation.navigate("DerivConnect")}
-        >
-          <Text style={styles.buttonTextAlt}>SIGN UP</Text>
-        </TouchableOpacity>
-      </View>
-
-      
-      <View style={styles.iconContainer}>
-        <TouchableOpacity>
-          <Ionicons name="logo-whatsapp" size={28} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="call-outline" size={28} color="black" />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="mail-outline" size={28} color="black" />
-        </TouchableOpacity>
-      </View>
-
-      
-    </LinearGradient>
+        <View style={styles.bottomLinks}>
+          <TouchableOpacity style={styles.linkButton}>
+            <Ionicons name="help-circle" size={20} color="white" />
+            <Text style={styles.linkText}>Help</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.linkButton}>
+            <Ionicons name="lock-closed" size={20} color="white" />
+            <Text style={styles.linkText}>Security</Text>
+          </TouchableOpacity>
+        </View>
+      </ImageBackground>
+    </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
+    backgroundColor: '#000',
+  },
+  background: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'space-between',
+    paddingBottom: 30,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
   },
   logo: {
-    width: 120,
-    height: 120,
     marginBottom: 20,
   },
   appName: {
+    color: 'white',
     fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 5,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    letterSpacing: 2,
   },
   tagline: {
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 16,
-    color: "#555",
-    textAlign: "center",
-    marginBottom: 30,
-   fontWeight: "450"
+    textAlign: 'center',
+    marginBottom: 40,
   },
-  buttonContainer: {
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  loginButton: {
-    backgroundColor: "black",
-    paddingVertical: 14,
-    paddingHorizontal: 80,
+  mainButton: {
+    backgroundColor: '#4361EE',
+    paddingVertical: 15,
+    paddingHorizontal: 40,
     borderRadius: 30,
-    marginBottom: 10,
-  },
-  signupButton: {
-    borderWidth: 2,
-    borderColor: "green",
-    paddingVertical: 14,
-    paddingHorizontal: 74,
-    borderRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   buttonText: {
+    color: 'white',
     fontSize: 16,
-    fontWeight: "bold",
-    color: "white",
+    fontWeight: 'bold',
   },
-  buttonTextAlt: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "black",
+  bottomLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 30,
   },
-  iconContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "50%",
-    marginBottom: 30,
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  linkText: {
+    color: 'white',
+    fontSize: 14,
   },
 });
 
