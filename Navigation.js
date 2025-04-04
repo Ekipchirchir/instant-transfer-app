@@ -17,8 +17,8 @@ const linking = {
   prefixes: ["instanttransfer://"],
   config: {
     screens: {
-      Home: "auth-success",
       Landing: "auth-failed",
+      Home: "auth-success",
       DerivConnectScreen: "deriv-connect",
       Transactions: "transactions",
       Deposit: "deposit",
@@ -57,19 +57,22 @@ const Navigation = ({ navigation }) => {
     };
 
     Linking.addEventListener("url", handleDeepLink);
-  }, []);
+    return () => {
+      Linking.removeEventListener("url", handleDeepLink);
+    };
+  }, [navigation]);
 
   return (
     <NavigationContainer linking={linking}>
       <Stack.Navigator initialRouteName="Landing" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Landing" component={LandingScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="DerivConnect" component={DerivConnectScreen}/>
+        <Stack.Screen name="DerivConnectScreen" component={DerivConnectScreen} />
         <Stack.Screen name="Transactions" component={TransactionScreen} />
         <Stack.Screen name="Deposit" component={DepositScreen} />
         <Stack.Screen name="Withdrawal" component={WithdrawalScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
-        <Stack.Screen name="Support" component={SupportScreen} />
+        <Stack.Screen name="SupportScreen" component={SupportScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
