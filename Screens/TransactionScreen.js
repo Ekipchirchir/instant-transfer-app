@@ -12,12 +12,13 @@ const API_BASE_URL = "https://instant-transfer-back-production.up.railway.app/ap
 
 const TransactionsScreen = () => {
   const navigation = useNavigation();
-  const [wallet, setWallet] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [balance, setBalance] = useState(0); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchWalletData = async () => {
+  const fetchTransactionData = async () => {
     try {
       const derivAccount = await AsyncStorage.getItem("deriv_account");
       if (!derivAccount) {
@@ -26,13 +27,20 @@ const TransactionsScreen = () => {
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/transactions/wallet/${derivAccount}`);
+      const response = await axios.get(`${API_BASE_URL}/mpesa/transactions/${derivAccount}`);
       if (response.status !== 200) {
         throw new Error(`Server responded with status ${response.status}`);
       }
 
-      setWallet(response.data.wallet);
-      setError("");
+      if (response.data.success) {
+        setTransactions(response.data.transactions);
+        const userResponse = await axios.get(`${API_BASE_URL}/user/${derivAccount}`); 
+        if (userResponse.data.success) {
+          setBalance(userResponse.data.user.balance);
+        }
+      } else {
+        setError(response.data.error || "No transactions found");
+      }
     } catch (error) {
       console.error("API Error:", error.response ? error.response.data : error.message);
       setError("Failed to load transaction history.");
@@ -44,7 +52,7 @@ const TransactionsScreen = () => {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchWalletData();
+    fetchTransactionData();
   };
 
   const handleLogout = async () => {
@@ -65,35 +73,36 @@ const TransactionsScreen = () => {
   };
 
   useEffect(() => {
-    fetchWalletData();
+    fetchTransactionData();
   }, []);
 
   const renderTransactionItem = ({ item }) => (
     <View style={[
       styles.transactionItem,
-      item.type === "deposit" ? styles.depositItem : styles.withdrawItem
+      item.status === "completed" ? styles.depositItem : styles.pendingItem
     ]}>
       <View style={styles.transactionIcon}>
         <Feather 
-          name={item.type === "deposit" ? "arrow-down-circle" : "arrow-up-circle"} 
+          name="arrow-down-circle" 
           size={24} 
-          color={item.type === "deposit" ? "#2B9348" : "#E5383B"} 
+          color={item.status === "completed" ? "#2B9348" : "#F08C00"} 
         />
       </View>
       <View style={styles.transactionDetails}>
-        <Text style={styles.transactionType}>
-          {item.type === "deposit" ? "Deposit" : "Withdrawal"}
-        </Text>
+        <Text style={styles.transactionType}>Deposit</Text>
         <Text style={styles.transactionDate}>
-          {new Date(item.createdAt).toLocaleDateString()}
+          {new Date(item.transactionDate || item.createdAt).toLocaleString()}
+        </Text>
+        <Text style={styles.transactionReceipt}>
+          Receipt: {item.mpesaReceiptNumber}
         </Text>
       </View>
       <View style={styles.transactionAmountContainer}>
         <Text style={[
           styles.transactionAmount,
-          item.type === "deposit" ? styles.depositAmount : styles.withdrawAmount
+          item.status === "completed" ? styles.depositAmount : styles.pendingAmount
         ]}>
-          {item.type === "deposit" ? "+" : "-"}${item.amount.toFixed(2)}
+          +KES {item.amount} (~${(item.amount / 129).toFixed(2)})
         </Text>
         <Text style={[
           styles.transactionStatus,
@@ -115,7 +124,6 @@ const TransactionsScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton} 
@@ -142,30 +150,15 @@ const TransactionsScreen = () => {
       ) : (
         <FlatList
           contentContainerStyle={styles.contentContainer}
-          data={wallet?.transactions || []}
+          data={transactions}
           renderItem={renderTransactionItem}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item) => item.id}
           ListHeaderComponent={
             <View style={styles.balanceCard}>
               <Text style={styles.balanceLabel}>Current Balance</Text>
               <Text style={styles.balanceAmount}>
-                ${wallet?.balance?.toFixed(2) || "0.00"}
+                ${balance.toFixed(2)}
               </Text>
-              <View style={styles.balanceDivider} />
-              <View style={styles.balanceSummary}>
-                <View style={styles.summaryItem}>
-                  <Feather name="arrow-down-circle" size={18} color="#2B9348" />
-                  <Text style={styles.summaryText}>
-                    ${wallet?.totalDeposits?.toFixed(2) || "0.00"}
-                  </Text>
-                </View>
-                <View style={styles.summaryItem}>
-                  <Feather name="arrow-up-circle" size={18} color="#E5383B" />
-                  <Text style={styles.summaryText}>
-                    ${wallet?.totalWithdrawals?.toFixed(2) || "0.00"}
-                  </Text>
-                </View>
-              </View>
             </View>
           }
           ListEmptyComponent={
@@ -261,25 +254,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#212529",
   },
-  balanceDivider: {
-    height: 1,
-    backgroundColor: "#E9ECEF",
-    marginVertical: 15,
-  },
-  balanceSummary: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  summaryItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  summaryText: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginLeft: 8,
-    color: "#212529",
-  },
   transactionItem: {
     backgroundColor: "#FFFFFF",
     borderRadius: 8,
@@ -297,9 +271,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#2B9348",
   },
-  withdrawItem: {
+  pendingItem: {
     borderLeftWidth: 4,
-    borderLeftColor: "#E5383B",
+    borderLeftColor: "#F08C00",
   },
   transactionIcon: {
     marginRight: 12,
@@ -317,6 +291,11 @@ const styles = StyleSheet.create({
     color: "#6C757D",
     marginTop: 2,
   },
+  transactionReceipt: {
+    fontSize: 12,
+    color: "#6C757D",
+    marginTop: 2,
+  },
   transactionAmountContainer: {
     alignItems: "flex-end",
   },
@@ -327,8 +306,8 @@ const styles = StyleSheet.create({
   depositAmount: {
     color: "#2B9348",
   },
-  withdrawAmount: {
-    color: "#E5383B",
+  pendingAmount: {
+    color: "#F08C00",
   },
   transactionStatus: {
     fontSize: 11,
