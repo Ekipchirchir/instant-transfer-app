@@ -13,9 +13,10 @@ const DepositScreen = ({ navigation, route }) => {
   const [usdAmount, setUsdAmount] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
-  const exchangeRate = 129; // Current USD to KES rate
-  const minUsdAmount = 10; // Minimum USD deposit amount
-  const minKesAmount = minUsdAmount * exchangeRate;
+  const exchangeRate = 30; 
+  const minUsdAmount = 1; 
+  const maxUsdAmount = 2000; 
+  const minKesAmount = Math.ceil(minUsdAmount * exchangeRate); 
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -51,15 +52,16 @@ const DepositScreen = ({ navigation, route }) => {
   const handleDeposit = async () => {
     const parsedAmount = parseFloat(usdAmount);
     if (isNaN(parsedAmount) || parsedAmount < minUsdAmount) {
-      Alert.alert('Invalid Amount', `Minimum deposit is USD ${minUsdAmount}`);
+      Alert.alert('Invalid Amount', `Minimum deposit is USD ${minUsdAmount.toFixed(2)} (KES ${minKesAmount}) to meet Deriv's minimum requirement`);
+      return;
+    }
+
+    if (parsedAmount > maxUsdAmount) {
+      Alert.alert('Invalid Amount', `Maximum deposit is USD ${maxUsdAmount.toFixed(2)} (KES ${Math.round(maxUsdAmount * exchangeRate)}) to stay within Deriv's maximum limit`);
       return;
     }
 
     const kesAmount = Math.round(parsedAmount * exchangeRate);
-    if (kesAmount < minKesAmount) {
-      Alert.alert('Invalid Amount', `Minimum amount is KES ${minKesAmount} (USD ${minUsdAmount})`);
-      return;
-    }
 
     const phoneRegex = /^(?:\+?254|0)?[7][0-9]{8}$/;
     if (!phoneRegex.test(phoneNumber)) {
@@ -150,7 +152,7 @@ const DepositScreen = ({ navigation, route }) => {
         <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton} 
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("Home")}
           >
             <Ionicons name="arrow-back" size={24} color="#3A0CA3" />
           </TouchableOpacity>
@@ -174,7 +176,7 @@ const DepositScreen = ({ navigation, route }) => {
                 <Text style={styles.currencySymbol}>$</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder={`Minimum USD ${minUsdAmount}`}
+                  placeholder={`Minimum USD ${minUsdAmount.toFixed(2)}`}
                   placeholderTextColor="#999"
                   keyboardType="decimal-pad"
                   value={usdAmount}
@@ -185,7 +187,7 @@ const DepositScreen = ({ navigation, route }) => {
                   }}
                 />
               </View>
-              <Text style={styles.minimumText}>Minimum: USD {minUsdAmount}</Text>
+              <Text style={styles.minimumText}>Minimum: USD {minUsdAmount.toFixed(2)} (KES {minKesAmount})</Text>
             </View>
 
             <View style={styles.section}>
@@ -240,7 +242,7 @@ const DepositScreen = ({ navigation, route }) => {
             </TouchableOpacity>
 
             <Text style={styles.footerNote}>
-              By proceeding, you agree to JUMIS INSTANT TRANSFER LIMITED's terms of service.
+              By proceeding, you agree to INSTANT TRANSFER's terms of service.
               Transactions may take 1-3 minutes to process.
             </Text>
           </View>
