@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { 
-  View, Text, StyleSheet, FlatList, 
+  View, Text, StyleSheet, ScrollView, 
   ActivityIndicator, TouchableOpacity, RefreshControl, Alert
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
@@ -8,12 +8,32 @@ import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Feather name="alert-circle" size={20} color="#E5383B" />
+          <Text style={styles.errorText}>Render Error: {this.state.error?.message || "Unknown error"}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const API_BASE_URL = "https://instant-transfer-back-production.up.railway.app/api";
 
 const TransactionsScreen = () => {
   const navigation = useNavigation();
   const [transactions, setTransactions] = useState([]);
-  const [balance, setBalance] = useState(0); 
+  const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -21,6 +41,7 @@ const TransactionsScreen = () => {
   const fetchTransactionData = async () => {
     try {
       const derivAccount = await AsyncStorage.getItem("deriv_account");
+      console.log('Fetching transactions for account:', derivAccount);
       if (!derivAccount) {
         setError("No account found. Please sign up via Deriv.");
         setLoading(false);
@@ -28,25 +49,33 @@ const TransactionsScreen = () => {
       }
 
       const response = await axios.get(`${API_BASE_URL}/mpesa/transactions/${derivAccount}`);
+      console.log('Transactions API Response:', JSON.stringify(response.data, null, 2));
+
       if (response.status !== 200) {
         throw new Error(`Server responded with status ${response.status}`);
       }
 
       if (response.data.success) {
-        setTransactions(response.data.transactions);
-        const userResponse = await axios.get(`${API_BASE_URL}/user/${derivAccount}`); 
+        setTransactions(response.data.transactions || []);
+        console.log('Transactions set:', response.data.transactions?.length || 0);
+        const userResponse = await axios.get(`${API_BASE_URL}/mpesa/user/${derivAccount}`);
+        console.log('User API Response:', JSON.stringify(userResponse.data, null, 2));
         if (userResponse.data.success) {
           setBalance(userResponse.data.user.balance);
+        } else {
+          console.warn('Failed to fetch user balance:', userResponse.data.error);
         }
       } else {
         setError(response.data.error || "No transactions found");
+        console.log('Error from API:', response.data.error);
       }
     } catch (error) {
       console.error("API Error:", error.response ? error.response.data : error.message);
-      setError("Failed to load transaction history.");
+      setError(error.response?.data?.error || "Failed to load transaction history.");
     } finally {
       setLoading(false);
       setRefreshing(false);
+      console.log('Loading state set to false');
     }
   };
 
@@ -73,111 +102,152 @@ const TransactionsScreen = () => {
   };
 
   useEffect(() => {
+    console.log('TransactionsScreen mounted');
     fetchTransactionData();
   }, []);
 
-  const renderTransactionItem = ({ item }) => (
-    <View style={[
-      styles.transactionItem,
-      item.status === "completed" ? styles.depositItem : styles.pendingItem
-    ]}>
-      <View style={styles.transactionIcon}>
-        <Feather 
-          name="arrow-down-circle" 
-          size={24} 
-          color={item.status === "completed" ? "#2B9348" : "#F08C00"} 
-        />
-      </View>
-      <View style={styles.transactionDetails}>
-        <Text style={styles.transactionType}>Deposit</Text>
-        <Text style={styles.transactionDate}>
-          {new Date(item.transactionDate || item.createdAt).toLocaleString()}
-        </Text>
-        <Text style={styles.transactionReceipt}>
-          Receipt: {item.mpesaReceiptNumber}
-        </Text>
-      </View>
-      <View style={styles.transactionAmountContainer}>
-        <Text style={[
-          styles.transactionAmount,
-          item.status === "completed" ? styles.depositAmount : styles.pendingAmount
+  const renderTransactionItem = (item) => {
+    console.log('Rendering transaction item:', item.id);
+    try {
+      const transactionDate = item.transactionDate || item.createdAt;
+      const parsedDate = new Date(transactionDate);
+      const isValidDate = !isNaN(parsedDate.getTime());
+      const displayDate = isValidDate
+        ? parsedDate.toLocaleString()
+        : "Date Not Available";
+
+      const isWithdrawal = item.transactionType === 'withdrawal';
+
+      return (
+        <View style={[
+          styles.transactionItem,
+          item.status === "completed" ? (isWithdrawal ? styles.withdrawalItem : styles.depositItem) : styles.pendingItem
         ]}>
-          +KES {item.amount} (~${(item.amount / 129).toFixed(2)})
-        </Text>
-        <Text style={[
-          styles.transactionStatus,
-          item.status === "completed" ? styles.completedStatus : styles.pendingStatus
-        ]}>
-          {item.status.toUpperCase()}
-        </Text>
-      </View>
-    </View>
-  );
+          <View style={styles.transactionIcon}>
+            <Feather 
+              name={isWithdrawal ? "arrow-up-circle" : "arrow-down-circle"} 
+              size={24} 
+              color={item.status === "completed" ? (isWithdrawal ? "#E5383B" : "#2B9348") : "#F08C00"} 
+            />
+          </View>
+          <View style={styles.transactionDetails}>
+            <Text style={styles.transactionType}>{isWithdrawal ? "Withdrawal" : "Deposit"}</Text>
+            <Text style={styles.transactionDate}>
+              {displayDate}
+            </Text>
+            <Text style={styles.transactionReceipt}>
+              Receipt: {item.mpesaReceiptNumber || "N/A"}
+            </Text>
+            {item.status === "failed" && item.failureReason && (
+              <Text style={styles.failureReason}>
+                Failed: {item.failureReason}
+              </Text>
+            )}
+            {item.status === "completed" && item.derivTransactionId && (
+              <Text style={styles.transactionReceipt}>
+                Deriv TxID: {item.derivTransactionId}
+              </Text>
+            )}
+          </View>
+          <View style={styles.transactionAmountContainer}>
+            <Text style={[
+              styles.transactionAmount,
+              item.status === "completed" ? (isWithdrawal ? styles.withdrawalAmount : styles.depositAmount) : styles.pendingAmount
+            ]}>
+              {isWithdrawal ? "-" : "+"}KES {item.amount} (~${item.usdAmount?.toFixed(2) || "0.00"})
+            </Text>
+            <Text style={[
+              styles.transactionStatus,
+              item.status === "completed" ? styles.completedStatus : styles.pendingStatus
+            ]}>
+              {item.status?.toUpperCase() || "UNKNOWN"}
+            </Text>
+          </View>
+        </View>
+      );
+    } catch (error) {
+      console.error('Error rendering transaction item:', item.id, error.message);
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Error rendering transaction: {error.message}</Text>
+        </View>
+      );
+    }
+  };
+
+  console.log('Rendering TransactionsScreen, loading:', loading, 'error:', error, 'transactions:', transactions.length);
 
   if (loading && !refreshing) {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="#3A0CA3" />
+        <Text>Loading transactions...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="arrow-left" size={24} color="#3A0CA3" />
-        </TouchableOpacity>
-        
-        <Text style={styles.headerTitle}>Transaction History</Text>
-        
-        <TouchableOpacity 
-          style={styles.logoutButton} 
-          onPress={handleLogout}
-        >
-          <Feather name="log-out" size={24} color="#3A0CA3" />
-        </TouchableOpacity>
-      </View>
-
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Feather name="alert-circle" size={20} color="#E5383B" />
-          <Text style={styles.errorText}>{error}</Text>
+    <ErrorBoundary>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.navigate("Home")}
+          >
+            <Feather name="arrow-back" size={24} color="#3A0CA3" />
+          </TouchableOpacity>
+          
+          <Text style={styles.headerTitle}>Transaction History</Text>
+          
+          <TouchableOpacity 
+            style={styles.logoutButton} 
+            onPress={handleLogout}
+          >
+            <Feather name="log-out" size={24} color="#3A0CA3" />
+          </TouchableOpacity>
         </View>
-      ) : (
-        <FlatList
-          contentContainerStyle={styles.contentContainer}
-          data={transactions}
-          renderItem={renderTransactionItem}
-          keyExtractor={(item) => item.id}
-          ListHeaderComponent={
+
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Feather name="alert-circle" size={20} color="#E5383B" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.contentContainer}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#3A0CA3"
+              />
+            }
+          >
             <View style={styles.balanceCard}>
               <Text style={styles.balanceLabel}>Current Balance</Text>
               <Text style={styles.balanceAmount}>
-                ${balance.toFixed(2)}
+                ${balance?.toFixed(2) || "0.00"}
               </Text>
             </View>
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Feather name="file-text" size={40} color="#ADB5BD" />
-              <Text style={styles.emptyText}>No transactions yet</Text>
-              <Text style={styles.emptySubtext}>Your transactions will appear here</Text>
-            </View>
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#3A0CA3"
-            />
-          }
-        />
-      )}
-    </View>
+
+            {transactions.length > 0 ? (
+              transactions.map((item) => (
+                <React.Fragment key={item.id}>
+                  {renderTransactionItem(item)}
+                </React.Fragment>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Feather name="file-text" size={40} color="#ADB5BD" />
+                <Text style={styles.emptyText}>No transactions yet</Text>
+                <Text style={styles.emptySubtext}>Your transactions will appear here</Text>
+              </View>
+            )}
+          </ScrollView>
+        )}
+      </View>
+    </ErrorBoundary>
   );
 };
 
@@ -213,9 +283,13 @@ const styles = StyleSheet.create({
   logoutButton: {
     padding: 5,
   },
+  scrollView: {
+    flex: 1,
+  },
   contentContainer: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 120,
+    flexGrow: 1,
   },
   errorContainer: {
     backgroundColor: "#FFF5F5",
@@ -266,10 +340,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 1,
+    minHeight: 80,
   },
   depositItem: {
     borderLeftWidth: 4,
     borderLeftColor: "#2B9348",
+  },
+  withdrawalItem: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#E5383B",
   },
   pendingItem: {
     borderLeftWidth: 4,
@@ -296,6 +375,11 @@ const styles = StyleSheet.create({
     color: "#6C757D",
     marginTop: 2,
   },
+  failureReason: {
+    fontSize: 12,
+    color: "#E5383B",
+    marginTop: 2,
+  },
   transactionAmountContainer: {
     alignItems: "flex-end",
   },
@@ -305,6 +389,9 @@ const styles = StyleSheet.create({
   },
   depositAmount: {
     color: "#2B9348",
+  },
+  withdrawalAmount: {
+    color: "#E5383B",
   },
   pendingAmount: {
     color: "#F08C00",
