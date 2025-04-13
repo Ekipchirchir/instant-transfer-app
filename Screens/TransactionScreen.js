@@ -1,34 +1,106 @@
-import React, { useEffect, useState } from "react";
-import { 
-  View, Text, StyleSheet, ScrollView, 
-  ActivityIndicator, TouchableOpacity, RefreshControl, Alert
+import React, { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+  RefreshControl,
+  Alert,
+  Animated,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
-class ErrorBoundary extends React.Component {
-  state = { hasError: false, error: null };
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <View style={styles.errorContainer}>
-          <Feather name="alert-circle" size={20} color="#E5383B" />
-          <Text style={styles.errorText}>Render Error: {this.state.error?.message || "Unknown error"}</Text>
-        </View>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 const API_BASE_URL = "https://instant-transfer-back-production.up.railway.app/api";
+
+const TransactionItem = ({ item }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current; 
+
+  const onPressIn = () => {
+    Animated.timing(scaleAnim, {
+      toValue: 0.98,
+      duration: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.timing(scaleAnim, {
+      toValue: 1,
+      duration: 100,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const transactionDate = item.transactionDate || item.createdAt;
+  const parsedDate = new Date(transactionDate);
+  const isValidDate = !isNaN(parsedDate.getTime());
+  const displayDate = isValidDate
+    ? parsedDate.toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "N/A";
+
+  const isWithdrawal = item.transactionType === "withdrawal";
+
+  return (
+    <Animated.View style={[styles.transactionItem, { transform: [{ scale: scaleAnim }] }]}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+      >
+        <View style={styles.transactionContainer}>
+          <View style={styles.transactionLeft}>
+            <Feather
+              name={isWithdrawal ? "arrow-up" : "arrow-down"}
+              size={20}
+              color={isWithdrawal ? "#E5383B" : "#2B9348"}
+            />
+            <View style={styles.transactionDetails}>
+              <Text style={styles.transactionType}>
+                {isWithdrawal ? "Withdrawal" : "Deposit"}
+              </Text>
+              <Text style={styles.transactionDate}>{displayDate}</Text>
+            </View>
+          </View>
+          <View style={styles.transactionRight}>
+            <Text
+              style={[
+                styles.transactionAmount,
+                isWithdrawal ? styles.withdrawalAmount : styles.depositAmount,
+              ]}
+            >
+              {isWithdrawal ? "-" : "+"}${item.usdAmount?.toFixed(2) || "0.00"} {/* USD only */}
+            </Text>
+            <Text
+              style={[
+                styles.transactionStatus,
+                item.status === "completed"
+                  ? styles.completedStatus
+                  : item.status === "failed"
+                  ? styles.failedStatus
+                  : styles.pendingStatus,
+              ]}
+            >
+              {item.status.toUpperCase()}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.transactionReceipt}>
+          {item.mpesaReceiptNumber || item.derivTransactionId?.slice(0, 8) || "Pending"}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 const TransactionsScreen = () => {
   const navigation = useNavigation();
@@ -38,10 +110,11 @@ const TransactionsScreen = () => {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
+  const fadeAnim = useRef(new Animated.Value(0)).current; 
+
   const fetchTransactionData = async () => {
     try {
       const derivAccount = await AsyncStorage.getItem("deriv_account");
-      console.log('Fetching transactions for account:', derivAccount);
       if (!derivAccount) {
         setError("No account found. Please sign up via Deriv.");
         setLoading(false);
@@ -49,33 +122,29 @@ const TransactionsScreen = () => {
       }
 
       const response = await axios.get(`${API_BASE_URL}/mpesa/transactions/${derivAccount}`);
-      console.log('Transactions API Response:', JSON.stringify(response.data, null, 2));
-
       if (response.status !== 200) {
         throw new Error(`Server responded with status ${response.status}`);
       }
 
       if (response.data.success) {
         setTransactions(response.data.transactions || []);
-        console.log('Transactions set:', response.data.transactions?.length || 0);
         const userResponse = await axios.get(`${API_BASE_URL}/mpesa/user/${derivAccount}`);
-        console.log('User API Response:', JSON.stringify(userResponse.data, null, 2));
         if (userResponse.data.success) {
           setBalance(userResponse.data.user.balance);
-        } else {
-          console.warn('Failed to fetch user balance:', userResponse.data.error);
         }
       } else {
         setError(response.data.error || "No transactions found");
-        console.log('Error from API:', response.data.error);
       }
     } catch (error) {
-      console.error("API Error:", error.response ? error.response.data : error.message);
-      setError(error.response?.data?.error || "Failed to load transaction history.");
+      setError(error.response?.data?.error || "Failed to load transactions.");
     } finally {
       setLoading(false);
       setRefreshing(false);
-      console.log('Loading state set to false');
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }).start();
     }
   };
 
@@ -86,306 +155,188 @@ const TransactionsScreen = () => {
 
   const handleLogout = async () => {
     Alert.alert(
-      "Confirm Logout",
+      "Log Out",
       "Are you sure you want to log out?",
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Log Out", 
+        {
+          text: "Log Out",
           onPress: async () => {
             await AsyncStorage.clear();
             navigation.replace("Landing");
-          }
-        }
-      ]
+          },
+          style: "destructive",
+        },
+      ],
+      { cancelable: true }
     );
   };
 
   useEffect(() => {
-    console.log('TransactionsScreen mounted');
     fetchTransactionData();
   }, []);
 
-  const renderTransactionItem = (item) => {
-    console.log('Rendering transaction item:', item.id);
-    try {
-      const transactionDate = item.transactionDate || item.createdAt;
-      const parsedDate = new Date(transactionDate);
-      const isValidDate = !isNaN(parsedDate.getTime());
-      const displayDate = isValidDate
-        ? parsedDate.toLocaleString()
-        : "Date Not Available";
-
-      const isWithdrawal = item.transactionType === 'withdrawal';
-
-      return (
-        <View style={[
-          styles.transactionItem,
-          item.status === "completed" ? (isWithdrawal ? styles.withdrawalItem : styles.depositItem) : styles.pendingItem
-        ]}>
-          <View style={styles.transactionIcon}>
-            <Feather 
-              name={isWithdrawal ? "arrow-up-circle" : "arrow-down-circle"} 
-              size={24} 
-              color={item.status === "completed" ? (isWithdrawal ? "#E5383B" : "#2B9348") : "#F08C00"} 
-            />
-          </View>
-          <View style={styles.transactionDetails}>
-            <Text style={styles.transactionType}>{isWithdrawal ? "Withdrawal" : "Deposit"}</Text>
-            <Text style={styles.transactionDate}>
-              {displayDate}
-            </Text>
-            <Text style={styles.transactionReceipt}>
-              Receipt: {item.mpesaReceiptNumber || "N/A"}
-            </Text>
-            {item.status === "failed" && item.failureReason && (
-              <Text style={styles.failureReason}>
-                Failed: {item.failureReason}
-              </Text>
-            )}
-            {item.status === "completed" && item.derivTransactionId && (
-              <Text style={styles.transactionReceipt}>
-                Deriv TxID: {item.derivTransactionId}
-              </Text>
-            )}
-          </View>
-          <View style={styles.transactionAmountContainer}>
-            <Text style={[
-              styles.transactionAmount,
-              item.status === "completed" ? (isWithdrawal ? styles.withdrawalAmount : styles.depositAmount) : styles.pendingAmount
-            ]}>
-              {isWithdrawal ? "-" : "+"}KES {item.amount} (~${item.usdAmount?.toFixed(2) || "0.00"})
-            </Text>
-            <Text style={[
-              styles.transactionStatus,
-              item.status === "completed" ? styles.completedStatus : styles.pendingStatus
-            ]}>
-              {item.status?.toUpperCase() || "UNKNOWN"}
-            </Text>
-          </View>
-        </View>
-      );
-    } catch (error) {
-      console.error('Error rendering transaction item:', item.id, error.message);
-      return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Error rendering transaction: {error.message}</Text>
-        </View>
-      );
-    }
-  };
-
-  console.log('Rendering TransactionsScreen, loading:', loading, 'error:', error, 'transactions:', transactions.length);
-
   if (loading && !refreshing) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#3A0CA3" />
-        <Text>Loading transactions...</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4361EE" />
+        <Text style={styles.loadingText}></Text>
       </View>
     );
   }
 
   return (
-    <ErrorBoundary>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => navigation.navigate("Home")}
-          >
-            <Feather name="arrow-back" size={24} color="#3A0CA3" />
-          </TouchableOpacity>
-          
-          <Text style={styles.headerTitle}>Transaction History</Text>
-          
-          <TouchableOpacity 
-            style={styles.logoutButton} 
-            onPress={handleLogout}
-          >
-            <Feather name="log-out" size={24} color="#3A0CA3" />
-          </TouchableOpacity>
-        </View>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.navigate("Home")}>
+          <Feather name="arrow-left" size={28} color="#4361EE" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Transaction History</Text>
+        <TouchableOpacity onPress={handleLogout}>
+          <Feather name="log-out" size={24} color="#4361EE" />
+        </TouchableOpacity>
+      </View>
 
+      <View style={styles.balanceContainer}>
+        <Text style={styles.balanceTitle}>Your Balance</Text>
+        <Text style={styles.balanceValue}>${balance.toFixed(2)}</Text>
+      </View>
+
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4361EE" />
+        }
+      >
         {error ? (
           <View style={styles.errorContainer}>
-            <Feather name="alert-circle" size={20} color="#E5383B" />
+            <Feather name="alert-triangle" size={20} color="#E5383B" />
             <Text style={styles.errorText}>{error}</Text>
           </View>
+        ) : transactions.length > 0 ? (
+          transactions.map((item) => <TransactionItem key={item.id} item={item} />)
         ) : (
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.contentContainer}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor="#3A0CA3"
-              />
-            }
-          >
-            <View style={styles.balanceCard}>
-              <Text style={styles.balanceLabel}>Current Balance</Text>
-              <Text style={styles.balanceAmount}>
-                ${balance?.toFixed(2) || "0.00"}
-              </Text>
-            </View>
-
-            {transactions.length > 0 ? (
-              transactions.map((item) => (
-                <React.Fragment key={item.id}>
-                  {renderTransactionItem(item)}
-                </React.Fragment>
-              ))
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Feather name="file-text" size={40} color="#ADB5BD" />
-                <Text style={styles.emptyText}>No transactions yet</Text>
-                <Text style={styles.emptySubtext}>Your transactions will appear here</Text>
-              </View>
-            )}
-          </ScrollView>
+          <View style={styles.emptyContainer}>
+            <Feather name="list" size={48} color="#6C757D" />
+            <Text style={styles.emptyText}>No Transactions</Text>
+            <Text style={styles.emptySubText}>Your history will appear here.</Text>
+          </View>
         )}
-      </View>
-    </ErrorBoundary>
+      </ScrollView>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "lightgreen",
+    backgroundColor: "lightgreen", 
   },
-  loaderContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "lightgreen",
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#4361EE",
+    fontFamily: "System",
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    paddingTop: 50,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E9ECEF",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: 20,
+        paddingTop: 50,
+        backgroundColor: "#FFFFFF",
+        borderBottomWidth: 1,
+        borderBottomColor: "#E9ECEF",
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
     color: "#212529",
+    fontFamily: "System",
   },
-  backButton: {
-    padding: 5,
-  },
-  logoutButton: {
-    padding: 5,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
+  balanceContainer: {
+    backgroundColor: "#DDE4FF", 
     padding: 20,
-    paddingBottom: 120,
-    flexGrow: 1,
-  },
-  errorContainer: {
-    backgroundColor: "#FFF5F5",
-    padding: 15,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    margin: 20,
-    borderWidth: 1,
-    borderColor: "#FFE3E3",
-  },
-  errorText: {
-    color: "#E5383B",
-    fontSize: 14,
-    fontWeight: "500",
-    marginLeft: 10,
-  },
-  balanceCard: {
-    backgroundColor: "#FFFFFF",
+    margin: 16,
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+    alignItems: "center",
+    elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  balanceLabel: {
-    fontSize: 14,
-    color: "#6C757D",
-    marginBottom: 5,
+  balanceTitle: {
+    fontSize: 16,
+    color: "#4361EE",
+    fontFamily: "System",
+    fontWeight: "500",
   },
-  balanceAmount: {
-    fontSize: 28,
+  balanceValue: {
+    fontSize: 32,
     fontWeight: "700",
-    color: "#212529",
+    color: "#2B9348",
+    marginTop: 8,
+    fontFamily: "System",
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 80,
   },
   transactionItem: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
+    borderRadius: 10,
+    marginBottom: 12,
+    elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 3,
-    elevation: 1,
-    minHeight: 80,
   },
-  depositItem: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#2B9348",
+  transactionContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 14,
   },
-  withdrawalItem: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#E5383B",
-  },
-  pendingItem: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#F08C00",
-  },
-  transactionIcon: {
-    marginRight: 12,
+  transactionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
   transactionDetails: {
+    marginLeft: 12,
     flex: 1,
   },
   transactionType: {
-    fontSize: 15,
-    fontWeight: "500",
+    fontSize: 16,
+    fontWeight: "600",
     color: "#212529",
+    fontFamily: "System",
   },
   transactionDate: {
     fontSize: 12,
     color: "#6C757D",
     marginTop: 2,
+    fontFamily: "System",
   },
-  transactionReceipt: {
-    fontSize: 12,
-    color: "#6C757D",
-    marginTop: 2,
-  },
-  failureReason: {
-    fontSize: 12,
-    color: "#E5383B",
-    marginTop: 2,
-  },
-  transactionAmountContainer: {
+  transactionRight: {
     alignItems: "flex-end",
   },
   transactionAmount: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
+    fontFamily: "System",
   },
   depositAmount: {
     color: "#2B9348",
@@ -393,40 +344,66 @@ const styles = StyleSheet.create({
   withdrawalAmount: {
     color: "#E5383B",
   },
-  pendingAmount: {
-    color: "#F08C00",
-  },
   transactionStatus: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
     marginTop: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: "hidden",
+    color: "#FFFFFF",
+    fontFamily: "System",
   },
   completedStatus: {
-    backgroundColor: "#EBFBEE",
-    color: "#2B9348",
+    backgroundColor: "#2B9348",
   },
   pendingStatus: {
-    backgroundColor: "#FFF3BF",
-    color: "#F08C00",
+    backgroundColor: "#F08C00",
+  },
+  failedStatus: {
+    backgroundColor: "#E5383B",
+  },
+  transactionReceipt: {
+    fontSize: 12,
+    color: "#6C757D",
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    fontFamily: "System",
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF4F4",
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: "#E5383B",
+  },
+  errorText: {
+    fontSize: 14,
+    color: "#E5383B",
+    marginLeft: 10,
+    fontFamily: "System",
+    flexShrink: 1,
   },
   emptyContainer: {
     alignItems: "center",
-    padding: 40,
+    justifyContent: "center",
+    paddingVertical: 40,
   },
   emptyText: {
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 18,
+    fontWeight: "600",
     color: "#212529",
-    marginTop: 16,
+    marginTop: 12,
+    fontFamily: "System",
   },
-  emptySubtext: {
+  emptySubText: {
     fontSize: 14,
     color: "#6C757D",
     marginTop: 4,
+    fontFamily: "System",
   },
 });
 
