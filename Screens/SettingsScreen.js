@@ -85,7 +85,7 @@ const SettingsScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton} 
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.replace("Home")}
         >
           <Feather name="arrow-left" size={24} color="#3A0CA3" />
         </TouchableOpacity>
