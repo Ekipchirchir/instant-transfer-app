@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { 
-    View, Text, ActivityIndicator, StyleSheet, TouchableOpacity 
+    View, Text, ActivityIndicator, StyleSheet, TouchableOpacity, FlatList, ScrollView
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -13,6 +13,8 @@ const HomeScreen = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [transactions, setTransactions] = useState([]);
+    const [hideBalance, setHideBalance] = useState(false);
     const route = useRoute();
     const navigation = useNavigation();
 
@@ -23,41 +25,92 @@ const HomeScreen = () => {
                 if (!derivAccount) {
                     derivAccount = await AsyncStorage.getItem("deriv_account");
                 }
+                console.log("Fetching data for derivAccount:", derivAccount);
                 if (!derivAccount) {
                     setError("❌ No account found. Please sign up via Deriv.");
                     setLoading(false);
                     return;
                 }
 
-                const response = await axios.get(`${API_BASE_URL}/user/${derivAccount}`);
-                if (response.status !== 200) {
-                    throw new Error(`Server responded with status ${response.status}`);
+                const userResponse = await axios.get(`${API_BASE_URL}/user/${derivAccount}`);
+                console.log("User API Response:", userResponse.data);
+
+                if (userResponse.status !== 200) {
+                    throw new Error(`User API responded with status ${userResponse.status}`);
                 }
 
-                setUser(response.data);
+                let transactionsResponse;
+                try {
+                    transactionsResponse = await axios.get(`${API_BASE_URL}/mpesa/transactions/${derivAccount}`);
+                    console.log("Transactions API Response:", transactionsResponse.data);
+                    console.log("First 3 Transactions:", transactionsResponse.data.transactions.slice(0, 3));
+                } catch (txError) {
+                    console.warn("Transactions fetch failed:", txError.message);
+                    setTransactions([]);
+                }
+
+                setUser(userResponse.data);
+                setTransactions(transactionsResponse?.data?.transactions?.slice(0, 3) || []);
                 await AsyncStorage.setItem("deriv_account", derivAccount);
             } catch (error) {
-                setError("❌ Failed to fetch user data.");
+                console.error("Fetch Error:", error.message);
+                setError(`❌ Failed to load data: ${error.message}`);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchUserData();
-    }, []);
+    }, [route.params?.deriv_account]);
 
     const handleLogout = async () => {
         await AsyncStorage.clear();
-        navigation.replace("Landing");
+        navigation.navigate("Landing");
+    };
+
+    const toggleBalanceVisibility = () => {
+        setHideBalance(!hideBalance);
+    };
+
+    const renderTransaction = ({ item }) => {
+        console.log("Transaction Item:", item);
+        const amount = item.usdAmount !== undefined ? item.usdAmount : item.amount || 0;
+
+        return (
+            <View style={styles.transactionItem}>
+                <Ionicons
+                    name={item.transactionType === "deposit" ? "arrow-down" : "arrow-up"}
+                    size={18}
+                    color={item.transactionType === "deposit" ? "#2B9348" : "#E5383B"}
+                />
+                <View style={styles.transactionDetails}>
+                    <Text style={styles.transactionText}>
+                        {item.transactionType === "deposit" ? "Deposit" : "Withdrawal"}
+                    </Text>
+                    <Text style={styles.transactionDate}>
+                        {item.transactionDate ? new Date(item.transactionDate).toLocaleDateString() : "N/A"}
+                    </Text>
+                </View>
+                <Text style={styles.transactionAmount}>${Number(amount).toFixed(2)}</Text>
+            </View>
+        );
     };
 
     if (loading) {
         return (
             <View style={styles.loaderContainer}>
                 <ActivityIndicator size="large" color="#4361EE" />
+                <Text style={styles.loadingText}>Loading...</Text>
             </View>
         );
     }
+
+    const currentDate = new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
 
     return (
         <View style={styles.container}>
@@ -79,20 +132,44 @@ const HomeScreen = () => {
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.content}>
+            <ScrollView 
+                style={styles.content} 
+                contentContainerStyle={styles.contentContainer}
+                showsVerticalScrollIndicator={false}
+            >
+                <Text style={styles.dateText}>{currentDate}</Text>
                 {error ? (
                     <View style={styles.errorContainer}>
                         <Text style={styles.errorText}>{error}</Text>
                     </View>
-                ) : (
+                ) : user ? (
                     <>
                         <View style={styles.userCard}>
-                            <Text style={styles.userName}>{user?.fullname || "Guest User"}</Text>
-                            <Text style={styles.accountNumber}>Account: {user?.deriv_account || "N/A"}</Text>
-                            
+                            <View style={styles.userInfo}>
+                                <View style={styles.avatar}>
+                                    <Text style={styles.avatarText}>
+                                        {user?.fullname?.charAt(0) || "G"}
+                                    </Text>
+                                </View>
+                                <View>
+                                    <Text style={styles.userName}>{user?.fullname || "Guest User"}</Text>
+                                    <Text style={styles.accountNumber}>Account: {user?.deriv_account || "N/A"}</Text>
+                                </View>
+                            </View>
                             <View style={styles.balanceContainer}>
-                                <Text style={styles.balanceLabel}>Available Balance</Text>
-                                <Text style={styles.balance}>${user?.balance?.toFixed(2) || "0.00"}</Text>
+                                <View style={styles.balanceHeader}>
+                                    <Text style={styles.balanceLabel}>Available Balance</Text>
+                                    <TouchableOpacity onPress={toggleBalanceVisibility}>
+                                        <Ionicons
+                                            name={hideBalance ? "eye-off" : "eye"}
+                                            size={20}
+                                            color="#6C757D"
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+                                <Text style={styles.balance}>
+                                    {hideBalance ? "••••••" : `$${user?.balance?.toFixed(2) || "0.00"}`}
+                                </Text>
                             </View>
                         </View>
 
@@ -101,7 +178,7 @@ const HomeScreen = () => {
                                 style={[styles.actionButton, styles.depositButton]}
                                 onPress={() => navigation.navigate("Deposit")}
                             >
-                                <Ionicons name="add-circle" size={20} color="#2B9348" />
+                                <Ionicons name="add-circle" size={24} color="#2B9348" />
                                 <Text style={styles.actionButtonText}>Deposit</Text>
                             </TouchableOpacity>
                             
@@ -109,47 +186,31 @@ const HomeScreen = () => {
                                 style={[styles.actionButton, styles.withdrawButton]}
                                 onPress={() => navigation.navigate("Withdrawal")}
                             >
-                                <Ionicons name="remove-circle" size={20} color="#E5383B" />
+                                <Ionicons name="remove-circle" size={24} color="#E5383B" />
                                 <Text style={styles.actionButtonText}>Withdraw</Text>
                             </TouchableOpacity>
                         </View>
-                    </>
-                )}
-            </View>
 
-            <View style={styles.bottomNav}>
-                <TouchableOpacity 
-                    style={styles.navButton}
-                    onPress={() => navigation.navigate("Home")}
-                >
-                    <Ionicons name="home" size={22} color="#4361EE" />
-                    <Text style={styles.navText}>Home</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                    style={styles.navButton}
-                    onPress={() => navigation.navigate("Transactions")}
-                >
-                    <Ionicons name="swap-horizontal" size={22} color="#4A4E69" />
-                    <Text style={styles.navText}>Transactions</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                    style={styles.navButton}
-                    onPress={() => navigation.navigate("Settings")}
-                >
-                    <Ionicons name="settings" size={22} color="#4A4E69" />
-                    <Text style={styles.navText}>Settings</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                    style={styles.navButton}
-                    onPress={() => navigation.navigate("Support")}
-                >
-                    <Ionicons name="chatbubble-ellipses" size={22} color="#4A4E69" />
-                    <Text style={styles.navText}>Support</Text>
-                </TouchableOpacity>
-            </View>
+                        <View style={styles.transactionsContainer}>
+                            <Text style={styles.transactionsTitle}>Recent Transactions</Text>
+                            {transactions.length > 0 ? (
+                                <FlatList
+                                    data={transactions}
+                                    renderItem={renderTransaction}
+                                    keyExtractor={(item) => item.id || String(Math.random())}
+                                    scrollEnabled={false} // Keep this false, ScrollView handles scrolling
+                                />
+                            ) : (
+                                <Text style={styles.noTransactions}>No recent transactions</Text>
+                            )}
+                        </View>
+                    </>
+                ) : (
+                    <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>❌ No user data available</Text>
+                    </View>
+                )}
+            </ScrollView>
         </View>
     );
 };
@@ -165,66 +226,113 @@ const styles = StyleSheet.create({
         alignItems: "center",
         backgroundColor: "#F8F9FA",
     },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: "#4361EE",
+    },
     header: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
         padding: 20,
-        paddingTop: 50,
+        paddingTop: 40,
         backgroundColor: "#FFFFFF",
         borderBottomWidth: 1,
         borderBottomColor: "#E9ECEF",
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: "700",
-        color: "#212529",
-        fontFamily: "System",
-    },
-    backButton: {
-        padding: 5,
-    },
-    logoutButton: {
-        padding: 5,
-    },
-    content: {
-        flex: 1,
-        padding: 20,
-    },
-    userCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 20,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 6,
         elevation: 2,
     },
+    title: {
+        fontSize: 22,
+        fontWeight: "700",
+        color: "#212529",
+        fontFamily: "System",
+    },
+    backButton: {
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: "#F8F9FA",
+    },
+    logoutButton: {
+        padding: 8,
+        borderRadius: 20,
+        backgroundColor: "#F8F9FA",
+    },
+    content: {
+        flex: 1,
+    },
+    contentContainer: {
+        padding: 20,
+        paddingBottom: 80, // Extra padding for bottom tab bar
+    },
+    dateText: {
+        fontSize: 14,
+        color: "#212529",
+        fontWeight: "500",
+        marginBottom: 15,
+        textAlign: "center",
+    },
+    userCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    userInfo: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 15,
+    },
+    avatar: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: "#3A0CA3",
+        justifyContent: "center",
+        alignItems: "center",
+        marginRight: 12,
+    },
+    avatarText: {
+        color: "#FFFFFF",
+        fontSize: 20,
+        fontWeight: "600",
+    },
     userName: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: "600",
         color: "#212529",
-        marginBottom: 5,
+        marginBottom: 4,
     },
     accountNumber: {
         fontSize: 14,
         color: "#6C757D",
-        marginBottom: 15,
     },
     balanceContainer: {
         paddingTop: 15,
         borderTopWidth: 1,
         borderTopColor: "#E9ECEF",
     },
+    balanceHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
     balanceLabel: {
-        fontSize: 12,
+        fontSize: 14,
         color: "#6C757D",
         fontWeight: "500",
     },
     balance: {
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: "700",
         color: "#2B9348",
         marginTop: 5,
@@ -234,6 +342,8 @@ const styles = StyleSheet.create({
         padding: 15,
         borderRadius: 8,
         marginBottom: 20,
+        borderWidth: 1,
+        borderColor: "#721C24",
     },
     errorText: {
         color: "#721C24",
@@ -244,6 +354,7 @@ const styles = StyleSheet.create({
     buttonsContainer: {
         flexDirection: "row",
         justifyContent: "space-between",
+        marginBottom: 20,
     },
     actionButton: {
         flex: 1,
@@ -251,8 +362,13 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         padding: 15,
-        borderRadius: 8,
-        marginHorizontal: 5,
+        borderRadius: 12,
+        marginHorizontal: 8,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     depositButton: {
         backgroundColor: "#E8F5E9",
@@ -261,27 +377,56 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFEBEE",
     },
     actionButtonText: {
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: "600",
         marginLeft: 8,
         color: "#212529",
     },
-    bottomNav: {
-        flexDirection: "row",
-        justifyContent: "space-around",
-        paddingVertical: 12,
+    transactionsContainer: {
         backgroundColor: "#FFFFFF",
-        borderTopWidth: 1,
-        borderTopColor: "#E9ECEF",
+        borderRadius: 16,
+        padding: 15,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    navButton: {
+    transactionsTitle: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: "#212529",
+        marginBottom: 10,
+    },
+    transactionItem: {
+        flexDirection: "row",
         alignItems: "center",
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: "#E9ECEF",
     },
-    navText: {
-        fontSize: 12,
+    transactionDetails: {
+        flex: 1,
+        marginLeft: 10,
+    },
+    transactionText: {
+        fontSize: 14,
         fontWeight: "500",
-        marginTop: 4,
-        color: "#4A4E69",
+        color: "#212529",
+    },
+    transactionDate: {
+        fontSize: 12,
+        color: "#6C757D",
+    },
+    transactionAmount: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#212529",
+    },
+    noTransactions: {
+        fontSize: 14,
+        color: "#6C757D",
+        textAlign: "center",
     },
 });
 
