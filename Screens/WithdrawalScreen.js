@@ -1,3 +1,4 @@
+// WithdrawalScreen.js
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -7,7 +8,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  KeyboardAvoidingView, 
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from "react-native";
@@ -38,7 +39,7 @@ const WithdrawScreen = () => {
         const derivAccount = await AsyncStorage.getItem("deriv_account");
         if (!derivAccount) {
           Alert.alert("Error", "User not logged in. Please log in again.");
-          navigation.replace("DerivConnectScreen");
+          navigation.replace("DerivConnect");
           return;
         }
 
@@ -70,10 +71,11 @@ const WithdrawScreen = () => {
       const token = await AsyncStorage.getItem("access_token");
       if (!derivAccount || !token) {
         Alert.alert("Error", "User not logged in. Please log in again.");
-        navigation.replace("DerivConnectScreen");
+        navigation.replace("DerivConnect");
         return;
       }
 
+      console.log('Requesting verification code for deriv_account:', derivAccount);
       const response = await fetch(`${API_BASE_URL}/mpesa/request-verification`, {
         method: "POST",
         headers: {
@@ -82,7 +84,10 @@ const WithdrawScreen = () => {
         },
         body: JSON.stringify({ deriv_account: derivAccount }),
       });
+
       const data = await response.json();
+      console.log('Verification Request Response:', data);
+
       if (data.success) {
         Alert.alert("Success", "Verification code sent to your email.");
         setIsVerificationRequested(true);
@@ -90,7 +95,8 @@ const WithdrawScreen = () => {
         Alert.alert("Error", data.error || "Failed to request verification code.");
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to request verification code.");
+      console.error('Verification Request Error:', error.message);
+      Alert.alert("Error", error.message || "Failed to request verification code.");
     } finally {
       setVerificationLoading(false);
     }
@@ -148,7 +154,7 @@ const WithdrawScreen = () => {
 
       if (data.success) {
         setTransactionId(data.data.transactionId);
-        pollWithdrawalStatus(data.data.transactionId); 
+        pollWithdrawalStatus(data.data.transactionId);
       } else {
         throw new Error(data.error || "Failed to initiate withdrawal.");
       }
@@ -198,7 +204,7 @@ const WithdrawScreen = () => {
 
   const handleLogout = async () => {
     await AsyncStorage.clear();
-    navigation.replace("DerivConnectScreen");
+    navigation.navigate("AuthStack", { screen: "Landing" });
   };
 
   if (error) {
@@ -477,7 +483,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   requestButton: {
-    padding: 12, 
+    padding: 12,
   },
   buttonDisabled: {
     backgroundColor: "#ADB5BD",
