@@ -3,3 +3,5 @@ build:
   android:
     environment:
       JAVA_VERSION: "17"
+    steps:
+      - run: npm ci --quiet || npm install --quiet --legacy-peer-deps
