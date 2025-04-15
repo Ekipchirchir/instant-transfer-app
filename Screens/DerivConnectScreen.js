@@ -62,6 +62,7 @@ const DerivConnectScreen = () => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="lightgreen" />
 
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={26} color="#000" />
@@ -69,15 +70,18 @@ const DerivConnectScreen = () => {
         <Text style={styles.headerTitle}>Deriv Connect</Text>
       </View>
 
+      {/* Logo */}
       <Image 
         source={{ uri: "https://deriv.com/static/og-image.png" }}  
         style={styles.logo} 
       />
 
+      {/* Description */}
       <Text style={styles.description}>
         Securely connect your Deriv account for fast transactions.
       </Text>
 
+      {/* Details Container */}
       <View style={styles.detailsContainer}>
         <View style={styles.detailItem}>
           <Ionicons name="shield-checkmark" size={20} color="#FFD700" />
@@ -93,6 +97,7 @@ const DerivConnectScreen = () => {
         </View>
       </View>
 
+      {/* Buttons */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.loginButton} onPress={handleDerivLogin}>
           <Ionicons name="log-in-outline" size={22} color="white" style={styles.buttonIcon} />
@@ -118,19 +123,24 @@ const styles = StyleSheet.create({
   },
   header: {
     position: "absolute",
-    top: 50,
+    top: 80,  
     left: 20,
+    right: 20,  
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",  
+    marginBottom: 20,  
   },
   backButton: {
+    position: "absolute",
+    left: 0,  
     padding: 10,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: "bold",
     color: "#000",
-    marginLeft: 10,
+    textAlign: "center",  
   },
   logo: {
     width: 100,
