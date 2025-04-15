@@ -10,15 +10,19 @@ import {
   Alert,
   Animated,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
 const API_BASE_URL = "https://instant-transfer-back-production.up.railway.app/api";
 
+const ThemeContext = React.createContext();
+
 const TransactionItem = ({ item }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current; 
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const heightAnim = useRef(new Animated.Value(0)).current;
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const onPressIn = () => {
     Animated.timing(scaleAnim, {
@@ -36,6 +40,16 @@ const TransactionItem = ({ item }) => {
     }).start();
   };
 
+  const toggleExpand = () => {
+    const newExpandedState = !isExpanded;
+    setIsExpanded(newExpandedState);
+    Animated.timing(heightAnim, {
+      toValue: newExpandedState ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  };
+
   const transactionDate = item.transactionDate || item.createdAt;
   const parsedDate = new Date(transactionDate);
   const isValidDate = !isNaN(parsedDate.getTime());
@@ -49,6 +63,20 @@ const TransactionItem = ({ item }) => {
     : "N/A";
 
   const isWithdrawal = item.transactionType === "withdrawal";
+  const paymentMethod = item.mpesaReceiptNumber ? "M-Pesa" : "Deriv";
+  // Updated exchange rate logic: 134 for deposits, 124 for withdrawals
+  const exchangeRate = isWithdrawal ? 124 : 134;
+  const kesAmount = item.usdAmount ? (item.usdAmount * exchangeRate).toFixed(0) : "0";
+
+  const displayReceipt =
+    item.status === "completed"
+      ? item.mpesaReceiptNumber || item.derivTransactionId?.slice(0, 8) || "N/A"
+      : "";
+
+  const animatedHeight = heightAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 90],
+  });
 
   return (
     <Animated.View style={[styles.transactionItem, { transform: [{ scale: scaleAnim }] }]}>
@@ -56,10 +84,11 @@ const TransactionItem = ({ item }) => {
         activeOpacity={0.9}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
+        onPress={toggleExpand}
       >
         <View style={styles.transactionContainer}>
           <View style={styles.transactionLeft}>
-            <Feather
+            <Ionicons
               name={isWithdrawal ? "arrow-up" : "arrow-down"}
               size={20}
               color={isWithdrawal ? "#E5383B" : "#2B9348"}
@@ -78,7 +107,7 @@ const TransactionItem = ({ item }) => {
                 isWithdrawal ? styles.withdrawalAmount : styles.depositAmount,
               ]}
             >
-              {isWithdrawal ? "-" : "+"}${item.usdAmount?.toFixed(2) || "0.00"} {/* USD only */}
+              {isWithdrawal ? "-" : "+"}${item.usdAmount?.toFixed(2) || "0.00"}
             </Text>
             <Text
               style={[
@@ -93,11 +122,41 @@ const TransactionItem = ({ item }) => {
               {item.status.toUpperCase()}
             </Text>
           </View>
+          <Ionicons
+            name={isExpanded ? "chevron-up" : "chevron-down"}
+            size={20}
+            color="#6C757D"
+            style={styles.expandIcon}
+          />
         </View>
-        <Text style={styles.transactionReceipt}>
-          {item.mpesaReceiptNumber || item.derivTransactionId?.slice(0, 8) || "Pending"}
-        </Text>
+        {displayReceipt ? (
+          <Text style={styles.transactionReceipt}>{displayReceipt}</Text>
+        ) : null}
       </TouchableOpacity>
+      <Animated.View style={[styles.detailsContainer, { height: animatedHeight }]}>
+        <View style={styles.detailsContent}>
+          {item.status === "completed" && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Transaction ID:</Text>
+              <Text style={styles.detailValue}>
+                {item.mpesaReceiptNumber || item.derivTransactionId || "N/A"}
+              </Text>
+            </View>
+          )}
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Payment Method:</Text>
+            <Text style={styles.detailValue}>{paymentMethod}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Amount (USD):</Text>
+            <Text style={styles.detailValue}>${item.usdAmount?.toFixed(2) || "0.00"}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Amount (KES):</Text>
+            <Text style={styles.detailValue}>KES {kesAmount}</Text>
+          </View>
+        </View>
+      </Animated.View>
     </Animated.View>
   );
 };
@@ -110,7 +169,9 @@ const TransactionsScreen = () => {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current; 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const { theme } = React.useContext(ThemeContext) || { theme: "light" };
 
   const fetchTransactionData = async () => {
     try {
@@ -154,22 +215,8 @@ const TransactionsScreen = () => {
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      "Log Out",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log Out",
-          onPress: async () => {
-            await AsyncStorage.clear();
-            navigation.replace("Landing");
-          },
-          style: "destructive",
-        },
-      ],
-      { cancelable: true }
-    );
+    await AsyncStorage.clear();
+    navigation.replace("AuthStack", { screen: "Landing" });
   };
 
   useEffect(() => {
@@ -187,13 +234,34 @@ const TransactionsScreen = () => {
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate("Home")}>
-          <Feather name="arrow-left" size={28} color="#4361EE" />
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme === "dark" ? "#1A1A1A" : "#FFFFFF",
+            borderBottomColor: theme === "dark" ? "#333333" : "#E9ECEF",
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.navigate("Home")}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Transaction History</Text>
-        <TouchableOpacity onPress={handleLogout}>
-          <Feather name="log-out" size={24} color="#4361EE" />
+        <Text
+          style={[
+            styles.headerTitle,
+            { color: theme === "dark" ? "#FFFFFF" : "#212529" },
+          ]}
+        >
+          Transaction History
+        </Text>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -211,14 +279,14 @@ const TransactionsScreen = () => {
       >
         {error ? (
           <View style={styles.errorContainer}>
-            <Feather name="alert-triangle" size={20} color="#E5383B" />
+            <Ionicons name="alert-triangle" size={20} color="#E5383B" />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : transactions.length > 0 ? (
           transactions.map((item) => <TransactionItem key={item.id} item={item} />)
         ) : (
           <View style={styles.emptyContainer}>
-            <Feather name="list" size={48} color="#6C757D" />
+            <Ionicons name="list" size={48} color="#6C757D" />
             <Text style={styles.emptyText}>No Transactions</Text>
             <Text style={styles.emptySubText}>Your history will appear here.</Text>
           </View>
@@ -231,7 +299,7 @@ const TransactionsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "lightgreen", 
+    backgroundColor: "lightgreen",
   },
   loadingContainer: {
     flex: 1,
@@ -241,28 +309,45 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    fontSize: 16,
+    fontSize: 14,
     color: "#4361EE",
     fontFamily: "System",
   },
   header: {
     flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: 20,
-        paddingTop: 50,
-        backgroundColor: "#FFFFFF",
-        borderBottomWidth: 1,
-        borderBottomColor: "#E9ECEF",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    paddingTop: 40,
+    borderBottomWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#212529",
     fontFamily: "System",
   },
+  backButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "#00FF00",
+  },
+  logoutButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "#FF4444",
+    shadowColor: "#000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   balanceContainer: {
-    backgroundColor: "#DDE4FF", 
+    backgroundColor: "#DDE4FF",
     padding: 20,
     margin: 16,
     borderRadius: 12,
@@ -280,7 +365,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   balanceValue: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: "700",
     color: "#2B9348",
     marginTop: 8,
@@ -302,6 +387,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
+    overflow: "hidden",
   },
   transactionContainer: {
     flexDirection: "row",
@@ -319,7 +405,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   transactionType: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#212529",
     fontFamily: "System",
@@ -332,11 +418,14 @@ const styles = StyleSheet.create({
   },
   transactionRight: {
     alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
   },
   transactionAmount: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     fontFamily: "System",
+    marginRight: 10,
   },
   depositAmount: {
     color: "#2B9348",
@@ -345,7 +434,7 @@ const styles = StyleSheet.create({
     color: "#E5383B",
   },
   transactionStatus: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "600",
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -368,6 +457,33 @@ const styles = StyleSheet.create({
     color: "#6C757D",
     paddingHorizontal: 14,
     paddingBottom: 10,
+    fontFamily: "System",
+  },
+  expandIcon: {
+    marginLeft: 10,
+  },
+  detailsContainer: {
+    overflow: "hidden",
+    backgroundColor: "#F8F9FA",
+  },
+  detailsContent: {
+    padding: 14,
+    paddingTop: 0,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 4,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: "#6C757D",
+    fontFamily: "System",
+    fontWeight: "500",
+  },
+  detailValue: {
+    fontSize: 12,
+    color: "#212529",
     fontFamily: "System",
   },
   errorContainer: {
@@ -393,14 +509,14 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: "#212529",
     marginTop: 12,
     fontFamily: "System",
   },
   emptySubText: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#6C757D",
     marginTop: 4,
     fontFamily: "System",
