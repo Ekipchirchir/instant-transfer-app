@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, Text, TextInput, TouchableOpacity, 
+import {
+  View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
   ScrollView
 } from 'react-native';
@@ -9,14 +9,18 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../config';
 
+const ThemeContext = React.createContext();
+
 const DepositScreen = ({ navigation, route }) => {
   const [usdAmount, setUsdAmount] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
-  const exchangeRate = 30; 
-  const minUsdAmount = 1; 
-  const maxUsdAmount = 2000; 
-  const minKesAmount = Math.ceil(minUsdAmount * exchangeRate); 
+  const exchangeRate = 30;
+  const minUsdAmount = 2;
+  const maxUsdAmount = 2000;
+  const minKesAmount = Math.ceil(minUsdAmount * exchangeRate);
+
+  const { theme } = React.useContext(ThemeContext) || { theme: "light" };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -121,10 +125,10 @@ const DepositScreen = ({ navigation, route }) => {
         url: error.config?.url
       });
 
-      const errorMessage = error.response?.data?.error || 
-                           (error.response?.status === 404 ? 'Payment service unavailable. Please try again.' : 
-                           error.message.includes('timeout') ? 'Request timed out. Check your connection.' : 
-                           'Payment failed. Please try again.');
+      const errorMessage = error.response?.data?.error ||
+        (error.response?.status === 404 ? 'Payment service unavailable. Please try again.' :
+          error.message.includes('timeout') ? 'Request timed out. Check your connection.' :
+            'Payment failed. Please try again.');
 
       Alert.alert('Payment Error', errorMessage);
     } finally {
@@ -133,37 +137,46 @@ const DepositScreen = ({ navigation, route }) => {
   };
 
   const handleLogout = async () => {
-    try {
-      await AsyncStorage.clear();
-      console.log('Logged out: AsyncStorage cleared');
-      navigation.replace('Auth');
-    } catch (error) {
-      console.error('Logout Error:', error);
-      Alert.alert('Error', 'Failed to log out. Please try again.');
-    }
+    await AsyncStorage.clear();
+    navigation.replace("AuthStack", { screen: "Landing" });
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme === "dark" ? "#1A1A1A" : "#FFFFFF",
+              borderBottomColor: theme === "dark" ? "#333333" : "#E9ECEF",
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={() => navigation.navigate("Home")}
           >
-            <Ionicons name="arrow-back" size={24} color="#3A0CA3" />
+            <Ionicons name="arrow-back" size={24} color="#000000" />
           </TouchableOpacity>
-          
-          <Text style={styles.headerTitle}>Deposit Funds</Text>
-          
-          <TouchableOpacity 
-            style={styles.logoutButton} 
+
+          <Text
+            style={[
+              styles.headerTitle,
+              { color: theme === "dark" ? "#FFFFFF" : "#212529" },
+            ]}
+          >
+            Deposit Funds
+          </Text>
+
+          <TouchableOpacity
+            style={styles.logoutButton}
             onPress={handleLogout}
           >
-            <Ionicons name="exit-outline" size={24} color="#3A0CA3" />
+            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -226,7 +239,7 @@ const DepositScreen = ({ navigation, route }) => {
               <Text style={styles.note}>Your M-Pesa registered number</Text>
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.button,
                 (!usdAmount || parseFloat(usdAmount) < minUsdAmount || !phoneNumber || loading) && styles.buttonDisabled
@@ -261,25 +274,36 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
-    paddingTop: 50,
-    backgroundColor: '#FFFFFF',
+    paddingTop: 40,
     borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20, 
     fontWeight: '600',
-    color: '#212529',
   },
   backButton: {
-    padding: 5,
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "#00FF00",
   },
   logoutButton: {
-    padding: 5,
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "#FF4444",
+    shadowColor: "#000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   content: {
     flex: 1,
