@@ -1,4 +1,3 @@
-// WithdrawalScreen.js
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -13,12 +12,15 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import API_BASE_URL from "../config";
 
+const ThemeContext = React.createContext();
+
 const WithdrawScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const [usdAmount, setUsdAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
@@ -27,11 +29,13 @@ const WithdrawScreen = () => {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [isVerificationRequested, setIsVerificationRequested] = useState(false);
   const [error, setError] = useState(null);
-  const [status, setStatus] = useState(""); // Tracks "pending", "received", "sent", "error"
-  const [transactionId, setTransactionId] = useState(null); // Store backend transaction ID
+  const [status, setStatus] = useState(""); 
+  const [transactionId, setTransactionId] = useState(null); 
   const exchangeRate = 124;
   const minimumUsd = 2;
-  const kesAmount = usdAmount ? (parseFloat(usdAmount) * exchangeRate).toFixed(0) : "0"; // Rounded to match DepositScreen
+  const kesAmount = usdAmount ? (parseFloat(usdAmount) * exchangeRate).toFixed(0) : "0";
+
+  const { theme } = React.useContext(ThemeContext) || { theme: "light" };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -61,8 +65,27 @@ const WithdrawScreen = () => {
         Alert.alert("Error", "Failed to load user data.");
       }
     };
+
+    const handleVerificationRedirect = async () => {
+      const { status, verification_code, loginid, message } = route.params || {};
+      const storedDerivAccount = await AsyncStorage.getItem("deriv_account");
+
+      if (status === "verified" && verification_code && loginid) {
+        if (loginid === storedDerivAccount) {
+          setVerificationCode(verification_code);
+          setIsVerificationRequested(true);
+          Alert.alert("Success", "Verification confirmed! Please proceed with your withdrawal.");
+        } else {
+          Alert.alert("Error", "Verification failed: Invalid user account.");
+        }
+      } else if (status === "error" && message) {
+        Alert.alert("Error", message);
+      }
+    };
+
     fetchUserData();
-  }, [navigation]);
+    handleVerificationRedirect();
+  }, [navigation, route]);
 
   const handleRequestVerification = async () => {
     setVerificationLoading(true);
@@ -179,9 +202,9 @@ const WithdrawScreen = () => {
         const data = await response.json();
 
         if (data.status === "received") {
-          setStatus("received"); // Funds hit CR3474231
+          setStatus("received"); 
         } else if (data.status === "sent") {
-          setStatus("sent"); // Funds sent to M-Pesa
+          setStatus("sent");
           clearInterval(interval);
           setLoading(false);
           Alert.alert("Success", "Funds sent to your M-Pesa account!", [
@@ -199,12 +222,12 @@ const WithdrawScreen = () => {
         setLoading(false);
         Alert.alert("Error", "Failed to check withdrawal status.");
       }
-    }, 5000); // Poll every 5 seconds
+    }, 5000); 
   };
 
   const handleLogout = async () => {
     await AsyncStorage.clear();
-    navigation.navigate("AuthStack", { screen: "Landing" });
+    navigation.replace("AuthStack", { screen: "Landing" });
   };
 
   if (error) {
@@ -224,13 +247,34 @@ const WithdrawScreen = () => {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate("Home")}>
-            <Ionicons name="arrow-back" size={24} color="#3A0CA3" />
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme === "dark" ? "#1A1A1A" : "#FFFFFF",
+              borderBottomColor: theme === "dark" ? "#333333" : "#E9ECEF",
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.navigate("Home")}
+          >
+            <Ionicons name="arrow-back" size={24} color="#000000" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Withdraw Funds</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="exit-outline" size={24} color="#3A0CA3" />
+          <Text
+            style={[
+              styles.headerTitle,
+              { color: theme === "dark" ? "#FFFFFF" : "#212529" },
+            ]}
+          >
+            Withdraw Funds
+          </Text>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -379,21 +423,32 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
-    paddingTop: 50,
-    backgroundColor: "#FFFFFF",
+    paddingTop: 40,
     borderBottomWidth: 1,
-    borderBottomColor: "#E9ECEF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20, 
     fontWeight: "600",
-    color: "#212529",
   },
   backButton: {
-    padding: 5,
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "#00FF00",
   },
   logoutButton: {
-    padding: 5,
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "#FF4444",
+    shadowColor: "#000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   content: {
     flex: 1,
