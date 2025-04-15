@@ -3,6 +3,8 @@ build:
   android:
     environment:
       JAVA_VERSION: "17"
-      JAVA_HOME: "/usr/lib/jvm/temurin-17-jdk-amd64"
+      JAVA_HOME: "/opt/jdk-17"
+      PATH: "${JAVA_HOME}/bin:${PATH}"
     steps:
       - run: npm ci --quiet || npm install --quiet --legacy-peer-deps
+      - run: echo "org.gradle.java.home=/opt/jdk-17" >> android/gradle.properties
