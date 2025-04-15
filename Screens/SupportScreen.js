@@ -11,12 +11,17 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from "@react-native-async-storage/async-storage"; 
 
 const { width } = Dimensions.get('window');
 
+const ThemeContext = React.createContext();
+
 const SupportScreen = ({ navigation }) => {
-  const fadeAnim = React.useRef(new Animated.Value(0)).current; 
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const [showAllFaqs, setShowAllFaqs] = useState(false);
+
+  const { theme } = React.useContext(ThemeContext) || { theme: "light" };
 
   const contactMethods = [
     {
@@ -116,18 +121,46 @@ const SupportScreen = ({ navigation }) => {
     setShowAllFaqs(true);
   };
 
+  const handleLogout = async () => {
+    await AsyncStorage.clear();
+    navigation.replace("AuthStack", { screen: "Landing" });
+  };
+
   const visibleFaqs = showAllFaqs ? faqs : faqs.slice(0, 8);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        {/* Header (Larger Height) */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#3A0CA3" />
+       
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: theme === "dark" ? "#1A1A1A" : "#FFFFFF",
+              borderBottomColor: theme === "dark" ? "#333333" : "#E9ECEF",
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#000000" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Support Center</Text>
-          <View style={{ width: 24 }} /> {/* Placeholder for symmetry */}
+          <Text
+            style={[
+              styles.headerTitle,
+              { color: theme === "dark" ? "#FFFFFF" : "#212529" },
+            ]}
+          >
+            Support Center
+          </Text>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -180,7 +213,7 @@ const SupportScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Resources */}
+          {/* Helpful Resources 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Helpful Resources</Text>
             <View style={styles.resourceContainer}>
@@ -200,8 +233,7 @@ const SupportScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Footer Spacer */}
+          */}
           <View style={styles.footerSpacer} />
         </ScrollView>
       </Animated.View>
@@ -212,33 +244,51 @@ const SupportScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'lightgreen', 
+    backgroundColor: 'lightgreen',
   },
   container: {
     flex: 1,
   },
   header: {
     flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: 20,
-        paddingTop: 50,
-        backgroundColor: "#FFFFFF",
-        borderBottomWidth: 1,
-        borderBottomColor: "#E9ECEF",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    paddingTop: 40,
+    borderBottomWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   headerTitle: {
-    fontSize: 18, 
-    fontWeight: '600', 
-    color: '#212529', 
+    fontSize: 20,
+    fontWeight: '600',
     fontFamily: 'System',
+    
+  },
+  backButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "#00FF00",
+  },
+  logoutButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "#FF4444",
+    shadowColor: "#000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 80, 
+    paddingBottom: 80,
   },
   section: {
     marginBottom: 24,
@@ -339,7 +389,7 @@ const styles = StyleSheet.create({
   },
   resourceCard: {
     backgroundColor: '#FFFFFF',
-    width: (width - 48) / 2, 
+    width: (width - 48) / 2,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -358,7 +408,7 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
   },
   footerSpacer: {
-    height: 40, 
+    height: 40,
   },
 });
 
