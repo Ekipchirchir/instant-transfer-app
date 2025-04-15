@@ -1,0 +1,5 @@
+version: "1.0"
+build:
+  android:
+    environment:
+      JAVA_VERSION: "17"
