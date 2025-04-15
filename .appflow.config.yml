@@ -3,5 +3,6 @@ build:
   android:
     environment:
       JAVA_VERSION: "17"
+      JAVA_HOME: "/usr/lib/jvm/temurin-17-jdk-amd64"
     steps:
       - run: npm ci --quiet || npm install --quiet --legacy-peer-deps
