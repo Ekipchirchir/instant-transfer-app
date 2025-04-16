@@ -2,32 +2,26 @@
   "expo": {
     "name": "IntaTransfer",
     "slug": "intatransfer",
-    "scheme": "instanttransfer",
     "version": "1.0.0",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "platforms": ["android", "web"],
     "android": {
-      "package": "com.manuukip.intatransfer"
+      "package": "com.manuuchir.intatransfer",
+      "versionCode": 2,
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"],
+      "intentFilters": []
     },
-    "ios": {
-      "bundleIdentifier": "com.manuukip.intatransfer"
+    "scheme": "intatransfer",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": ["**/*"],
     "extra": {
       "eas": {
         "projectId": "fb8c010c-d35e-4cd0-8c26-d6ab5d8f111e"
       }
-    },
-    "updates": {
-      "url": ""
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "web": {
-      "bundler": "metro"
     }
   }
 }
