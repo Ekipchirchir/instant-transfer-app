@@ -1,0 +1,6 @@
+{
+  "appId": "com.InstantTransfer.app",
+  "appName": "Instant Transfer",
+  "webDir": "build",
+  "bundledWebRuntime": false
+}
