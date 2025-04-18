@@ -9,17 +9,19 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../config';
 
+// Assuming ThemeContext is available from Navigation.js (as in HomeScreen.js)
 const ThemeContext = React.createContext();
 
 const DepositScreen = ({ navigation, route }) => {
   const [usdAmount, setUsdAmount] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
-  const exchangeRate = 30;
+  const exchangeRate = 134;
   const minUsdAmount = 2;
   const maxUsdAmount = 2000;
   const minKesAmount = Math.ceil(minUsdAmount * exchangeRate);
 
+  // Access theme from ThemeContext
   const { theme } = React.useContext(ThemeContext) || { theme: "light" };
 
   useEffect(() => {
@@ -137,8 +139,14 @@ const DepositScreen = ({ navigation, route }) => {
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.clear();
-    navigation.replace("AuthStack", { screen: "Landing" });
+    try {
+      await AsyncStorage.clear();
+      console.log('Logged out: AsyncStorage cleared');
+      navigation.replace('Auth');
+    } catch (error) {
+      console.error('Logout Error:', error);
+      Alert.alert('Error', 'Failed to log out. Please try again.');
+    }
   };
 
   return (
@@ -287,8 +295,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   headerTitle: {
-    fontSize: 20, 
+    fontSize: 20, // Updated to match HomeScreen.js
     fontWeight: '600',
+    // color: '#212529', // Now theme-based
   },
   backButton: {
     padding: 10,
