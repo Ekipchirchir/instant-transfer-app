@@ -29,12 +29,13 @@ const WithdrawScreen = () => {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [isVerificationRequested, setIsVerificationRequested] = useState(false);
   const [error, setError] = useState(null);
-  const [status, setStatus] = useState(""); 
-  const [transactionId, setTransactionId] = useState(null); 
+  const [status, setStatus] = useState(""); // Tracks "pending", "received", "sent", "error"
+  const [transactionId, setTransactionId] = useState(null); // Store backend transaction ID
   const exchangeRate = 124;
   const minimumUsd = 2;
   const kesAmount = usdAmount ? (parseFloat(usdAmount) * exchangeRate).toFixed(0) : "0";
 
+  // Access theme from ThemeContext
   const { theme } = React.useContext(ThemeContext) || { theme: "light" };
 
   useEffect(() => {
@@ -66,6 +67,7 @@ const WithdrawScreen = () => {
       }
     };
 
+    // Check if redirected from verification link
     const handleVerificationRedirect = async () => {
       const { status, verification_code, loginid, message } = route.params || {};
       const storedDerivAccount = await AsyncStorage.getItem("deriv_account");
@@ -202,9 +204,9 @@ const WithdrawScreen = () => {
         const data = await response.json();
 
         if (data.status === "received") {
-          setStatus("received"); 
+          setStatus("received"); // Funds hit CR3474231
         } else if (data.status === "sent") {
-          setStatus("sent");
+          setStatus("sent"); // Funds sent to M-Pesa
           clearInterval(interval);
           setLoading(false);
           Alert.alert("Success", "Funds sent to your M-Pesa account!", [
@@ -222,12 +224,12 @@ const WithdrawScreen = () => {
         setLoading(false);
         Alert.alert("Error", "Failed to check withdrawal status.");
       }
-    }, 5000); 
+    }, 5000); // Poll every 5 seconds
   };
 
   const handleLogout = async () => {
     await AsyncStorage.clear();
-    navigation.replace("AuthStack", { screen: "Landing" });
+    navigation.navigate("AuthStack", { screen: "Landing" });
   };
 
   if (error) {
@@ -432,8 +434,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   headerTitle: {
-    fontSize: 20, 
+    fontSize: 20, // Updated to match HomeScreen.js
     fontWeight: "600",
+    // color: "#212529", // Now theme-based
   },
   backButton: {
     padding: 10,
