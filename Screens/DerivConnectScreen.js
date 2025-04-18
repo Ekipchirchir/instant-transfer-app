@@ -1,59 +1,159 @@
-import React, { useState } from "react";
-import { 
-  View, Text, TouchableOpacity, StyleSheet, 
-  Image, StatusBar, Platform 
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  StatusBar,
+  Alert,
+  Linking,
+  ScrollView,
+  ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";  
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import WebView from "react-native-webview"; 
-import { Linking } from "react-native"; 
 
-const DERIV_APP_ID = "70625";  
-const REDIRECT_URI = encodeURIComponent("https://instant-transfer-back-production.up.railway.app/callback/");
-const DERIV_LOGIN_URL = `https://oauth.deriv.com/oauth2/authorize?app_id=${DERIV_APP_ID}&redirect_uri=${REDIRECT_URI}`;
+// Enable debug mode only during development (set to false for production)
+const DEBUG_MODE = __DEV__; // __DEV__ is true in development, false in production with Expo
+
+const DERIV_APP_ID = "70625";
+const REDIRECT_URI = "https://instant-transfer-back-production.up.railway.app/callback/"; // Backend URL to handle OAuth
+const APP_SCHEME = "instanttransfer://callback"; // App deep link scheme
+const DERIV_LOGIN_URL = `https://oauth.deriv.com/oauth2/authorize?app_id=${DERIV_APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+if (DEBUG_MODE) console.log("DERIV_LOGIN_URL:", DERIV_LOGIN_URL);
 
 const DerivConnectScreen = () => {
   const navigation = useNavigation();
-  const [showWebView, setShowWebView] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleDerivLogin = () => {
-    if (Platform.OS === "web") {
-      window.location.href = DERIV_LOGIN_URL;
-    } else {
-      setShowWebView(true);
+  const parseDeepLink = (url) => {
+    if (!url || !url.startsWith(APP_SCHEME)) {
+      if (DEBUG_MODE) console.log("Invalid or non-matching deep link:", url);
+      return {};
+    }
+    const queryString = url.split("?")[1] || "";
+    const params = new URLSearchParams(queryString);
+    return {
+      token: params.get("token") || "",
+      account: params.get("account") || "",
+    };
+  };
+
+  const storeAuthData = async ({ token, account }) => {
+    try {
+      if (!token || !account) {
+        throw new Error("Missing token or account in deep link");
+      }
+      await AsyncStorage.multiSet([
+        ["access_token", token],
+        ["deriv_account", account],
+        ["is_logged_in", "true"],
+      ]);
+      if (DEBUG_MODE) {
+        console.log("✅ Stored Auth Data:", {
+          token: token.substring(0, 10) + "...",
+          derivAccount: account,
+        });
+      }
+      return true;
+    } catch (err) {
+      if (DEBUG_MODE) console.error("AsyncStorage Error:", err.message);
+      throw err;
     }
   };
 
-  const handleWebViewNavigation = (navState) => {
-    const { url } = navState;
-    console.log("Current URL:", url);
-
-    if (url.includes(REDIRECT_URI)) {
-      console.log("✅ Login Success:", url);
-      setShowWebView(false);
-      navigation.replace("Home");
+  const handleDeepLink = async ({ url }) => {
+    if (DEBUG_MODE) console.log("Received Deep Link:", url);
+    setLoading(true);
+    setError(null);
+    try {
+      const { token, account } = parseDeepLink(url);
+      if (!token || !account) {
+        throw new Error("Invalid or missing token/account in deep link");
+      }
+      await storeAuthData({ token, account });
+      if (DEBUG_MODE) console.log("✅ Login successful, navigating to Home");
+      navigation.replace("MainTabs", { screen: "Home", params: { token } });
+    } catch (err) {
+      if (DEBUG_MODE) console.error("Deep Link Error:", err.message);
+      setError("Login failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (showWebView && Platform.OS !== "web") {
+  const handleDerivLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (DEBUG_MODE) console.log("Opening Deriv OAuth URL:", DERIV_LOGIN_URL);
+      await Linking.openURL(DERIV_LOGIN_URL);
+    } catch (err) {
+      if (DEBUG_MODE) console.error("Error opening URL:", err.message);
+      setError("Failed to open the login page. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Handle initial deep link (e.g., app opened via link)
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    // Add listener for deep links while app is running
+    const subscription = Linking.addEventListener("url", handleDeepLink);
+
+    // Cleanup listener on unmount
+    return () => subscription.remove();
+  }, []);
+
+  const handleRetry = () => {
+    setError(null);
+    handleDerivLogin();
+  };
+
+  if (loading) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="lightgreen" />
-        <WebView
-          source={{ uri: DERIV_LOGIN_URL }}
-          style={styles.webview}
-          onNavigationStateChange={handleWebViewNavigation}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          startInLoadingState={true}
-          scalesPageToFit={true}
-        />
-        <TouchableOpacity
-          style={styles.closeWebViewButton}
-          onPress={() => setShowWebView(false)}
-        >
-          <Ionicons name="close" size={30} color="#000" />
-        </TouchableOpacity>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={26} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Deriv Connect</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FFC107" />
+          <Text style={styles.loadingText}>Connecting...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="lightgreen" />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={26} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Deriv Connect</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+            <Text style={styles.retryText}>Retry Login</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="close-circle-outline" size={22} color="white" style={styles.buttonIcon} />
+            <Text style={styles.cancelText}>CANCEL</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -70,45 +170,47 @@ const DerivConnectScreen = () => {
         <Text style={styles.headerTitle}>Deriv Connect</Text>
       </View>
 
-      {/* Logo */}
-      <Image 
-        source={{ uri: "https://deriv.com/static/og-image.png" }}  
-        style={styles.logo} 
-      />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Logo */}
+        <Image
+          source={{ uri: "https://deriv.com/static/og-image.png" }}
+          style={styles.logo}
+        />
 
-      {/* Description */}
-      <Text style={styles.description}>
-        Securely connect your Deriv account for fast transactions.
-      </Text>
+        {/* Description */}
+        <Text style={styles.description}>
+          Securely connect your Deriv account for fast transactions.
+        </Text>
 
-      {/* Details Container */}
-      <View style={styles.detailsContainer}>
-        <View style={styles.detailItem}>
-          <Ionicons name="shield-checkmark" size={20} color="#FFD700" />
-          <Text style={styles.detailText}>Bank-level security</Text>
+        {/* List of Benefits */}
+        <View style={styles.benefitsContainer}>
+          <View style={styles.benefitItem}>
+            <Ionicons name="shield-checkmark" size={24} color="#FFC107" style={styles.benefitIcon} />
+            <Text style={styles.benefitText}>Bank-level security</Text>
+          </View>
+          <View style={styles.benefitItem}>
+            <Ionicons name="flash" size={24} color="#FFC107" style={styles.benefitIcon} />
+            <Text style={styles.benefitText}>Instant processing</Text>
+          </View>
+          <View style={styles.benefitItem}>
+            <Ionicons name="lock-closed" size={24} color="#FFC107" style={styles.benefitIcon} />
+            <Text style={styles.benefitText}>Encrypted connection</Text>
+          </View>
         </View>
-        <View style={styles.detailItem}>
-          <Ionicons name="flash" size={20} color="#FFD700" />
-          <Text style={styles.detailText}>Instant processing</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Ionicons name="lock-closed" size={20} color="#FFD700" />
-          <Text style={styles.detailText}>Encrypted connection</Text>
-        </View>
-      </View>
 
-      {/* Buttons */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.loginButton} onPress={handleDerivLogin}>
-          <Ionicons name="log-in-outline" size={22} color="white" style={styles.buttonIcon} />
-          <Text style={styles.loginText}>LOGIN WITH DERIV</Text>
-        </TouchableOpacity>
+        {/* Buttons */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.loginButton} onPress={handleDerivLogin}>
+            <Ionicons name="log-in-outline" size={22} color="white" style={styles.buttonIcon} />
+            <Text style={styles.loginText}>LOGIN WITH DERIV</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="close-circle-outline" size={22} color="white" style={styles.buttonIcon} />
-          <Text style={styles.cancelText}>CANCEL</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="close-circle-outline" size={22} color="white" style={styles.buttonIcon} />
+            <Text style={styles.cancelText}>CANCEL</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 };
@@ -116,122 +218,148 @@ const DerivConnectScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 20,
-    justifyContent: "center",
-    backgroundColor: "lightgreen",
+    backgroundColor: "lightgreen", // Light green background from screenshot
   },
   header: {
     position: "absolute",
-    top: 80,  
+    top: 40, // Adjusted to match screenshot
     left: 20,
-    right: 20,  
+    right: 20,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",  
-    marginBottom: 20,  
+    justifyContent: "center",
+    marginBottom: 20,
   },
   backButton: {
     position: "absolute",
-    left: 0,  
+    left: 0,
     padding: 10,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 18, // Slightly larger to match screenshot
     fontWeight: "bold",
     color: "#000",
-    textAlign: "center",  
+    textAlign: "center",
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 100, // Space for header
+    paddingBottom: 40, // Added spacing at the bottom
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 0, // Hidden since not present in screenshot
+    height: 0,
     resizeMode: "contain",
-    marginBottom: 20,
+    marginBottom: 0,
   },
   description: {
-    fontSize: 16,
+    fontSize: 16, // Larger font to match screenshot
+    fontWeight: "600", // Slightly bold
     textAlign: "center",
     color: "#000",
-    marginBottom: 30,
-    paddingHorizontal: 15,
+    marginBottom: 40, // Increased spacing
+    paddingHorizontal: 30,
+    lineHeight: 28, // Adjusted for better readability
+  },
+  benefitsContainer: {
+    width: "90%",
+    marginBottom: 40, // Spacing before buttons
+  },
+  benefitItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.5)", // Semi-transparent white background
+    borderRadius: 10, // Rounded corners
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    marginBottom: 10, // Spacing between items
+  },
+  benefitIcon: {
+    marginRight: 15,
+  },
+  benefitText: {
+    fontSize: 16,
+    color: "#000",
+    fontWeight: "500",
   },
   buttonContainer: {
     width: "100%",
     alignItems: "center",
+    marginBottom: 40, // Added spacing at the bottom of the button container
   },
   loginButton: {
     flexDirection: "row",
-    backgroundColor: "#FFD700",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 25,
+    backgroundColor: "#FFC107", // Yellow color from screenshot
+    paddingVertical: 16, // Adjusted to match screenshot
+    paddingHorizontal: 30,
+    borderRadius: 30, // More rounded corners
     alignItems: "center",
     width: "90%",
     justifyContent: "center",
-    marginBottom: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    marginBottom: 20, // Increased spacing between buttons
   },
   cancelButton: {
     flexDirection: "row",
-    backgroundColor: "#FF3B30",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 25,
+    backgroundColor: "#FF4444", // Red color from screenshot
+    paddingVertical: 16, // Adjusted to match screenshot
+    paddingHorizontal: 30,
+    borderRadius: 30, // More rounded corners
     alignItems: "center",
-    width: "90%",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    width: "90%",
   },
   buttonIcon: {
     marginRight: 10,
   },
   loginText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
-    color: "#000",
+    color: "#fff", // White text to match screenshot
   },
   cancelText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#fff",
   },
-  detailsContainer: {
-    width: "100%",
-    marginBottom: 30,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#000",
+    marginTop: 10,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
-  detailItem: {
+  errorText: {
+    fontSize: 16,
+    color: "#FF4444",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  retryButton: {
     flexDirection: "row",
+    backgroundColor: "#FFC107",
+    paddingVertical: 16,
+    paddingHorizontal: 30,
+    borderRadius: 30,
     alignItems: "center",
-    marginBottom: 12,
-    padding: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 8,
+    width: "90%",
+    justifyContent: "center",
+    marginBottom: 20,
   },
-  detailText: {
-    fontSize: 14,
-    color: "#000",
-    marginLeft: 10,
-    fontWeight: "500",
-  },
-  webview: {
-    flex: 1,
-    width: "100%",
-  },
-  closeWebViewButton: {
-    position: "absolute",
-    top: 50,
-    right: 20,
-    padding: 10,
-    zIndex: 1,
+  retryText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#fff",
   },
 });
 
